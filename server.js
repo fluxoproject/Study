@@ -1,7 +1,8 @@
 const express=require('express'),path=require('path'),{Pool}=require('pg'),bcrypt=require('bcryptjs'),jwt=require('jsonwebtoken'),helmet=require('helmet'),rateLimit=require('express-rate-limit');
 const {DATABASE_URL,JWT_SECRET,ANTHROPIC_API_KEY,ANTHROPIC_MODEL='claude-sonnet-5-5',PORT=3000}=process.env;
 if(!DATABASE_URL||!JWT_SECRET){console.error('Faltam variáveis de ambiente: DATABASE_URL e JWT_SECRET');process.exit(1)}
-const pool=new Pool({connectionString:DATABASE_URL,ssl:/\.render\.com/.test(DATABASE_URL)?{rejectUnauthorized:false}:false});
+const pool=new Pool({connectionString:DATABASE_URL,ssl:/\.render\.com|neon\.tech|supabase\.|sslmode=/.test(DATABASE_URL)?{rejectUnauthorized:false}:false,idleTimeoutMillis:30000,connectionTimeoutMillis:15000,max:5});
+pool.on('error',e=>console.error('Conexão ociosa do banco encerrada:',e.message));
 const app=express();app.set('trust proxy',1);app.use(helmet({contentSecurityPolicy:false}));app.use(express.json({limit:'2mb'}));
 const lim=rateLimit({windowMs:15*60*1000,max:40,standardHeaders:true,legacyHeaders:false,message:{error:'Muitas tentativas. Aguarde alguns minutos.'}});
 const w=f=>(q,s)=>f(q,s).catch(e=>{console.error(e);s.status(500).json({error:'Erro no servidor. Tente novamente.'})});
