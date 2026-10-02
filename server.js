@@ -1,5 +1,5 @@
 const express=require('express'),path=require('path'),{Pool}=require('pg'),bcrypt=require('bcryptjs'),jwt=require('jsonwebtoken'),helmet=require('helmet'),rateLimit=require('express-rate-limit');
-const {DATABASE_URL,JWT_SECRET,ANTHROPIC_API_KEY,ANTHROPIC_MODEL='claude-sonnet-5-5',PORT=3000}=process.env;
+const {DATABASE_URL,JWT_SECRET,GEMINI_API_KEY,GEMINI_MODEL='gemini-flash-latest',PORT=3000}=process.env;
 if(!DATABASE_URL||!JWT_SECRET){console.error('Faltam variáveis de ambiente: DATABASE_URL e JWT_SECRET');process.exit(1)}
 const pool=new Pool({connectionString:DATABASE_URL,ssl:/\.render\.com|neon\.tech|supabase\.|sslmode=/.test(DATABASE_URL)?{rejectUnauthorized:false}:false,idleTimeoutMillis:30000,connectionTimeoutMillis:15000,max:5});
 pool.on('error',e=>console.error('Conexão ociosa do banco encerrada:',e.message));
@@ -20,12 +20,17 @@ app.get('/api/state',auth,w(async(q,s)=>{const r=await pool.query('SELECT data,u
 app.put('/api/state',auth,w(async(q,s)=>{const{data,updatedAt}=q.body||{};if(!data||typeof data!=='object'||!Number.isFinite(updatedAt))return s.status(400).json({error:'Dados inválidos.'});
 const r=await pool.query('INSERT INTO app_state(user_id,data,updated_at) VALUES($1,$2,$3) ON CONFLICT(user_id) DO UPDATE SET data=EXCLUDED.data,updated_at=EXCLUDED.updated_at WHERE app_state.updated_at<=EXCLUDED.updated_at RETURNING updated_at',[q.user.id,JSON.stringify(data),updatedAt]);
 if(r.rowCount)return s.json({ok:true,updatedAt});const c=await pool.query('SELECT data,updated_at FROM app_state WHERE user_id=$1',[q.user.id]);s.status(409).json({error:'Há uma versão mais recente na nuvem.',data:c.rows[0].data,updatedAt:Number(c.rows[0].updated_at)})}));
-app.post('/api/tutor',auth,lim,w(async(q,s)=>{if(!ANTHROPIC_API_KEY)return s.status(503).json({error:'Tutor ainda não configurado no servidor.'});
-const msg=String(q.body.message||'').slice(0,2000),hist=(Array.isArray(q.body.history)?q.body.history:[]).slice(-8).map(m=>({role:m.u?'user':'assistant',content:String(m.t||'').slice(0,2000)})).filter(m=>m.content);
-const msgs=[...hist,{role:'user',content:msg}].reduce((a,m)=>{a.at(-1)?.role===m.role?a.at(-1).content+='\n'+m.content:a.push({...m});return a},[]);if(msgs[0].role!=='user')msgs.shift();
-const r=await fetch('https://api.anthropic.com/v1/messages',{method:'POST',headers:{'content-type':'application/json','x-api-key':ANTHROPIC_API_KEY,'anthropic-version':'2023-06-01'},body:JSON.stringify({model:ANTHROPIC_MODEL,max_tokens:900,system:'Você é o tutor do StudyFlow, para estudantes do Ensino Médio no Brasil. Responda em português do Brasil, de forma clara, curta e didática, com exemplos. Ao criar exercícios, não entregue o gabarito junto: peça que o aluno tente primeiro.',messages:msgs})});
-const j=await r.json();if(!r.ok){console.error(j);return s.status(502).json({error:'O tutor não conseguiu responder agora.'})}s.json({reply:(j.content||[]).map(b=>b.text||'').join('')})}));
-app.use(express.static(path.join(__dirname,'public')));
+app.post('/api/tutor',auth,lim,w(async(q,s)=>{if(!GEMINI_API_KEY)return s.status(503).json({error:'Tutor ainda não configurado no servidor.'});
+const msg=String(q.body.message||'').slice(0,2000);if(!msg.trim())return s.status(400).json({error:'Escreva sua dúvida.'});
+const hist=(Array.isArray(q.body.history)?q.body.history:[]).slice(-8).map(m=>({role:m.u?'user':'model',text:String(m.t||'').slice(0,2000)})).filter(m=>m.text);
+const turns=[...hist,{role:'user',text:msg}].reduce((a,m)=>{a.at(-1)?.role===m.role?a.at(-1).text+='\n'+m.text:a.push({...m});return a},[]);while(turns[0].role!=='user')turns.shift();
+const r=await fetch('https://generativelanguage.googleapis.com/v1beta/models/'+encodeURIComponent(GEMINI_MODEL)+':generateContent',{method:'POST',headers:{'content-type':'application/json','x-goog-api-key':GEMINI_API_KEY},body:JSON.stringify({systemInstruction:{parts:[{text:'Você é o tutor do StudyFlow, para estudantes do Ensino Médio no Brasil. Responda em português do Brasil, de forma clara, curta e didática, com exemplos. Ao criar exercícios, não entregue o gabarito junto: peça que o aluno tente primeiro.'}]},contents:turns.map(t=>({role:t.role,parts:[{text:t.text}]})),generationConfig:{maxOutputTokens:1200}})});
+const j=await r.json().catch(()=>({}));if(!r.ok){console.error('Gemini',r.status,JSON.stringify(j).slice(0,300));return s.status(r.status==429?429:502).json({error:r.status==429?'Limite do tutor atingido. Tente de novo em instantes.':'O tutor não conseguiu responder agora.'})}
+const reply=(j.candidates?.[0]?.content?.parts||[]).map(p=>p.text||'').join('').trim();s.json({reply:reply||'Não consegui responder essa. Tente reformular a pergunta.'})}));
+// Site (front-end) na mesma raiz do servidor. Só estes 3 arquivos são públicos; server.js e package.json nunca são expostos.
+const pub={'/':'index.html','/index.html':'index.html','/style.css':'style.css','/app.js':'app.js'};
+app.get(Object.keys(pub),(q,s)=>s.sendFile(path.join(__dirname,pub[q.path])));
+app.use((q,s)=>s.status(404).type('text').send('Não encontrado'));
 (async()=>{await pool.query(`CREATE TABLE IF NOT EXISTS users(id SERIAL PRIMARY KEY,email TEXT UNIQUE NOT NULL,name TEXT,password_hash TEXT NOT NULL,created_at TIMESTAMPTZ DEFAULT now());
 CREATE TABLE IF NOT EXISTS app_state(user_id INT PRIMARY KEY REFERENCES users(id) ON DELETE CASCADE,data JSONB NOT NULL,updated_at BIGINT NOT NULL)`);
 app.listen(PORT,()=>console.log('StudyFlow rodando na porta '+PORT))})().catch(e=>{console.error('Falha ao iniciar:',e.message);process.exit(1)});
