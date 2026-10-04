@@ -8,6 +8,7 @@ const app=express();app.set('trust proxy',1);app.use(helmet({contentSecurityPoli
 const ORIGINS=(process.env.ALLOWED_ORIGINS||'https://fluxoproject.github.io').split(',').map(x=>x.trim().replace(/\/+$/,''));
 app.use('/api',(q,s,n)=>{const o=q.headers.origin;if(o&&ORIGINS.includes(o)){s.set({'Access-Control-Allow-Origin':o,'Access-Control-Allow-Headers':'Content-Type,Authorization','Access-Control-Allow-Methods':'GET,POST,PUT,OPTIONS','Vary':'Origin'})}if(q.method==='OPTIONS')return s.sendStatus(204);n()});app.use(express.json({limit:'2mb'}));
 const lim=rateLimit({windowMs:15*60*1000,max:40,standardHeaders:true,legacyHeaders:false,message:{error:'Muitas tentativas. Aguarde alguns minutos.'}});
+const tlim=rateLimit({windowMs:5*60*1000,max:30,standardHeaders:true,legacyHeaders:false,keyGenerator:q=>'u'+((q.user&&q.user.id)||'anon'),message:{error:'Muitas perguntas seguidas. Espere um pouquinho e tente de novo.'}});
 const w=f=>(q,s)=>f(q,s).catch(e=>{console.error(e);s.status(500).json({error:'Erro no servidor. Tente novamente.'})});
 const sign=u=>jwt.sign({id:u.id,email:u.email},JWT_SECRET,{expiresIn:'60d'});
 const auth=(q,s,n)=>{try{q.user=jwt.verify((q.headers.authorization||'').slice(7),JWT_SECRET);n()}catch{s.status(401).json({error:'Sessão expirada. Entre novamente.'})}};
@@ -23,13 +24,28 @@ app.get('/api/state',auth,w(async(q,s)=>{const r=await pool.query('SELECT data,u
 app.put('/api/state',auth,w(async(q,s)=>{const{data,updatedAt}=q.body||{};if(!data||typeof data!=='object'||!Number.isFinite(updatedAt))return s.status(400).json({error:'Dados inválidos.'});
 const r=await pool.query('INSERT INTO app_state(user_id,data,updated_at) VALUES($1,$2,$3) ON CONFLICT(user_id) DO UPDATE SET data=EXCLUDED.data,updated_at=EXCLUDED.updated_at WHERE app_state.updated_at<=EXCLUDED.updated_at RETURNING updated_at',[q.user.id,JSON.stringify(data),updatedAt]);
 if(r.rowCount)return s.json({ok:true,updatedAt});const c=await pool.query('SELECT data,updated_at FROM app_state WHERE user_id=$1',[q.user.id]);s.status(409).json({error:'Há uma versão mais recente na nuvem.',data:c.rows[0].data,updatedAt:Number(c.rows[0].updated_at)})}));
-app.post('/api/tutor',auth,lim,w(async(q,s)=>{if(!GEMINI_API_KEY)return s.status(503).json({error:'Tutor ainda não configurado no servidor.'});
+// Gemini às vezes responde 503 (sobrecarga) ou 429: tenta 2x em cada modelo e, se falhar, usa o modelo reserva.
+const MODELS=[GEMINI_MODEL,...(process.env.GEMINI_FALLBACK||'gemini-flash-lite-latest').split(',').map(x=>x.trim())].filter((x,i,a)=>x&&a.indexOf(x)===i);
+async function gemini(body){let last={status:0};
+for(const mod of MODELS)for(let t=0;t<2;t++){
+try{const r=await fetch('https://generativelanguage.googleapis.com/v1beta/models/'+encodeURIComponent(mod)+':generateContent',{method:'POST',headers:{'content-type':'application/json','x-goog-api-key':GEMINI_API_KEY},body,signal:AbortSignal.timeout(20000)});
+const j=await r.json().catch(()=>({}));if(r.ok)return j;
+last={status:r.status};console.error('Gemini',mod,r.status,JSON.stringify(j).slice(0,300));
+if(![429,500,502,503,504].includes(r.status))break}
+catch(e){last={status:0};console.error('Gemini',mod,e.message)}
+await new Promise(z=>setTimeout(z,700*(t+1)))}
+throw Object.assign(new Error('gemini'),last)}
+app.post('/api/tutor',auth,tlim,w(async(q,s)=>{if(!GEMINI_API_KEY)return s.status(503).json({error:'Tutor ainda não configurado no servidor.'});
 const msg=String(q.body.message||'').slice(0,2000);if(!msg.trim())return s.status(400).json({error:'Escreva sua dúvida.'});
 const hist=(Array.isArray(q.body.history)?q.body.history:[]).slice(-8).map(m=>({role:m.u?'user':'model',text:String(m.t||'').slice(0,2000)})).filter(m=>m.text);
 const turns=[...hist,{role:'user',text:msg}].reduce((a,m)=>{a.at(-1)?.role===m.role?a.at(-1).text+='\n'+m.text:a.push({...m});return a},[]);while(turns[0].role!=='user')turns.shift();
-const r=await fetch('https://generativelanguage.googleapis.com/v1beta/models/'+encodeURIComponent(GEMINI_MODEL)+':generateContent',{method:'POST',headers:{'content-type':'application/json','x-goog-api-key':GEMINI_API_KEY},body:JSON.stringify({systemInstruction:{parts:[{text:'Você é o tutor do StudyFlow, para estudantes do Ensino Médio no Brasil. Responda em português do Brasil, de forma clara, curta e didática, com exemplos. Ao criar exercícios, não entregue o gabarito junto: peça que o aluno tente primeiro.'}]},contents:turns.map(t=>({role:t.role,parts:[{text:t.text}]})),generationConfig:{maxOutputTokens:1200}})});
-const j=await r.json().catch(()=>({}));if(!r.ok){console.error('Gemini',r.status,JSON.stringify(j).slice(0,300));return s.status(r.status==429?429:502).json({error:r.status==429?'Limite do tutor atingido. Tente de novo em instantes.':'O tutor não conseguiu responder agora.'})}
-const reply=(j.candidates?.[0]?.content?.parts||[]).map(p=>p.text||'').join('').trim();s.json({reply:reply||'Não consegui responder essa. Tente reformular a pergunta.'})}));
+const body=JSON.stringify({systemInstruction:{parts:[{text:'Você é o tutor do StudyFlow, para estudantes do Ensino Médio no Brasil. Responda em português do Brasil, de forma clara, curta e didática, com exemplos. Ao criar exercícios, não entregue o gabarito junto: peça que o aluno tente primeiro.'}]},contents:turns.map(t=>({role:t.role,parts:[{text:t.text}]})),generationConfig:{maxOutputTokens:4096}});
+let j,fail=0;
+try{j=await gemini(body)}catch(e){fail=e.status||0;console.error('Gemini falhou:',fail)}
+if(!j)return s.status(fail==429?429:502).json({error:fail==429?'Limite do tutor atingido. Tente de novo em instantes.':'O tutor está sobrecarregado agora. Tente de novo em alguns segundos.'});
+const cand=j.candidates&&j.candidates[0],reply=((cand&&cand.content&&cand.content.parts)||[]).map(p=>p.text||'').join('').trim();
+if(!reply&&((j.promptFeedback&&j.promptFeedback.blockReason)||(cand&&cand.finishReason==='SAFETY')))return s.json({reply:'Não consigo ajudar com esse pedido. Tente perguntar de outro jeito, focado nos estudos.'});
+s.json({reply:reply||'Não consegui responder essa. Tente reformular a pergunta.'})}));
 // Site (front-end) na mesma raiz do servidor. Só estes 3 arquivos são públicos; server.js e package.json nunca são expostos.
 const pub={'/':'index.html','/index.html':'index.html','/style.css':'style.css','/app.js':'app.js'};
 app.get(Object.keys(pub),(q,s)=>s.sendFile(path.join(__dirname,pub[q.path])));
