@@ -71,9 +71,10 @@ const pr=prep(q);if(pr.err)return s.status(400).json({error:pr.err});
 let j;try{j=await gemini(pr.obj,false)}catch(e){const x=errOf(e.status||0);return s.status(x.status).json({error:x.error})}
 const reply=textOf(j).trim();if(!reply&&blocked(j))return s.json({reply:BLOCKMSG});
 s.json({reply:reply||EMPTY})}));
-// Site (front-end) na mesma raiz do servidor. Só estes 3 arquivos são públicos; server.js e package.json nunca são expostos.
-const pub={'/':'index.html','/index.html':'index.html','/style.css':'style.css','/app.js':'app.js'};
-app.get(Object.keys(pub),(q,s)=>s.sendFile(path.join(__dirname,pub[q.path])));
+// Site (front-end) na mesma raiz do servidor. Só estes arquivos (e a pasta icons) são públicos; server.js e package.json nunca são expostos.
+const pub={'/':'index.html','/index.html':'index.html','/style.css':'style.css','/app.js':'app.js','/manifest.webmanifest':'manifest.webmanifest','/sw.js':'sw.js'};
+app.get(Object.keys(pub),(q,s)=>{s.set('Cache-Control','no-cache');if(q.path.endsWith('.webmanifest'))s.type('application/manifest+json');s.sendFile(path.join(__dirname,pub[q.path]))});
+app.use('/icons',express.static(path.join(__dirname,'icons'),{maxAge:'7d',index:false}));
 app.use((q,s)=>s.status(404).type('text').send('Não encontrado'));
 (async()=>{await pool.query(`CREATE TABLE IF NOT EXISTS users(id SERIAL PRIMARY KEY,email TEXT UNIQUE NOT NULL,name TEXT,password_hash TEXT NOT NULL,created_at TIMESTAMPTZ DEFAULT now());
 CREATE TABLE IF NOT EXISTS app_state(user_id INT PRIMARY KEY REFERENCES users(id) ON DELETE CASCADE,data JSONB NOT NULL,updated_at BIGINT NOT NULL)`);

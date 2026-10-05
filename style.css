@@ -87,7 +87,7 @@ details{border-top:1px solid var(--line);padding-top:9px}summary{font-weight:700
 
 .pw{position:relative}.pw input{padding-right:48px}.eye{position:absolute;right:4px;top:0;bottom:0;margin:auto 0;width:40px;height:40px;display:grid;place-items:center;color:var(--mu);border-radius:10px}.eye:active{transform:scale(.9)}
 #mini:empty{display:none}#mini{position:fixed;left:50%;transform:translateX(-50%);bottom:calc(88px + env(safe-area-inset-bottom));width:min(500px,calc(100% - 24px));z-index:9}
-.mt{display:flex;align-items:center;gap:10px;background:var(--acc);color:var(--onacc);border-radius:20px;padding:8px 8px 8px 10px;box-shadow:0 10px 26px rgba(30,111,232,.4);cursor:pointer}
+.mt{display:flex;align-items:center;gap:10px;background:var(--acc);color:var(--onacc);border-radius:20px;padding:8px 8px 8px 10px;box-shadow:0 10px 26px color-mix(in srgb,var(--acc) 40%,transparent);cursor:pointer}
 .mt small{color:var(--onacc);opacity:.8}.mt .sq{width:34px;height:34px;border-radius:11px;background:rgba(255,255,255,.22)!important}
 .mtt{font-size:22px;font-weight:800;font-variant-numeric:tabular-nums;letter-spacing:-.02em}
 .mb{width:38px;height:38px;border-radius:50%;background:rgba(255,255,255,.22);color:var(--onacc);display:grid;place-items:center;flex:none}
@@ -116,8 +116,8 @@ code{background:var(--soft);padding:1px 6px;border-radius:6px;font-size:13px}
 .bm{width:30px;height:30px;border-radius:10px;background:linear-gradient(145deg,var(--acc),color-mix(in srgb,var(--acc) 55%,#000));color:var(--onacc);display:grid;place-items:center;box-shadow:0 6px 14px color-mix(in srgb,var(--acc) 40%,transparent)}
 
 /* tela inicial */
-.card.hero2{position:relative;overflow:hidden;padding:18px 18px 0;color:#fff;border:1px solid rgba(255,255,255,.24);background:linear-gradient(150deg,rgba(84,152,255,.8) 0%,rgba(37,99,235,.64) 55%,rgba(22,52,150,.6) 100%);box-shadow:inset 0 1px 0 rgba(255,255,255,.38),0 18px 40px rgba(37,99,235,.28)}
-[data-theme=light] .card.hero2{background:linear-gradient(150deg,#4C9BFF,#1E6FE8 60%,#1553BD)}
+.card.hero2{position:relative;overflow:hidden;padding:18px 18px 0;color:#fff;border:1px solid rgba(255,255,255,.24);background:linear-gradient(150deg,var(--ha,rgba(84,152,255,.8)) 0%,var(--hb,rgba(37,99,235,.64)) 55%,var(--hc,rgba(22,52,150,.6)) 100%);box-shadow:inset 0 1px 0 rgba(255,255,255,.38),0 18px 40px color-mix(in srgb,var(--hb,#2563EB) 40%,transparent)}
+[data-theme=light] .card.hero2{background:linear-gradient(150deg,var(--ha,#4C9BFF),var(--hb,#1E6FE8) 60%,var(--hc,#1553BD))}
 .hero2::before{content:"";position:absolute;inset:-40%;background:radial-gradient(circle at 25% 15%,rgba(255,255,255,.26),transparent 38%);animation:drift 9s ease-in-out infinite alternate;pointer-events:none}
 .hh{display:flex;justify-content:space-between;align-items:flex-start;gap:10px;position:relative;z-index:1}
 .hh h2{font-size:23px;margin:2px 0 3px}
@@ -127,7 +127,7 @@ code{background:var(--soft);padding:1px 6px;border-radius:6px;font-size:13px}
 .hero2 .mini.wh{color:#fff;background:rgba(255,255,255,.18)}
 .hm{display:flex;align-items:flex-end;justify-content:space-between;gap:12px;margin:18px 0 16px;position:relative;z-index:1}
 .mring text{fill:#fff;font:800 15px var(--hf)}
-.hero2 .p{position:relative;z-index:1;background:#fff;color:#1553BD;margin-bottom:38px}
+.hero2 .p{position:relative;z-index:1;background:#fff;color:var(--hc,#1553BD);margin-bottom:38px}
 .wave{position:absolute;left:0;bottom:0;width:200%;height:56px;animation:wave 9s linear infinite;pointer-events:none}
 .wave.w2{bottom:7px;opacity:.55;animation-duration:15s;animation-direction:reverse}
 .dual{display:grid;grid-template-columns:1fr 1fr;gap:10px;margin-bottom:10px}.dual .card{margin:0}
@@ -301,3 +301,27 @@ input,select{border-radius:16px}
 @keyframes blink{50%{opacity:0}}
 @keyframes breathe{0%,100%{box-shadow:0 0 0 0 rgba(255,255,255,.35)}50%{box-shadow:0 0 0 8px rgba(255,255,255,0)}}
 @keyframes avpulse{0%,100%{box-shadow:0 0 0 0 color-mix(in srgb,var(--acc) 45%,transparent)}50%{box-shadow:0 0 0 7px transparent}}
+
+/* ================= LOGO, AVISO DE XP, PERSONALIZAÇÃO ================= */
+.lg{display:block;width:100%;height:100%;background:currentColor;-webkit-mask:url(icons/logo-mask.png) center/contain no-repeat;mask:url(icons/logo-mask.png) center/contain no-repeat}
+.bm .lg{width:21px;height:21px}.logo-mark .lg{width:50px;height:50px}
+.login h1{margin-bottom:22px}
+.toast{position:fixed;left:50%;top:calc(12px + env(safe-area-inset-top));transform:translateX(-50%);z-index:50;display:flex;gap:11px;align-items:center;max-width:calc(100% - 24px);background:var(--acc);color:var(--onacc);padding:11px 18px;border-radius:20px;box-shadow:0 14px 34px rgba(0,0,0,.38);animation:toastin .5s var(--spring)}
+.toast small{display:block;color:var(--onacc);opacity:.88;font-weight:700}
+.toast.out{opacity:0;transform:translate(-50%,-14px);transition:opacity .4s,transform .4s}
+@keyframes toastin{from{opacity:0;transform:translate(-50%,-22px)}}
+.xpb{display:inline-block;margin-top:8px;padding:2px 9px;border-radius:999px;font-weight:800;font-size:12px;background:var(--soft);color:var(--mu)}.xpb.got{background:var(--acc);color:var(--onacc)}
+.sws,.bgs{display:grid;grid-template-columns:repeat(4,1fr);gap:12px 10px;margin:12px 0 22px}
+.sw2,.bgo{display:flex;flex-direction:column;align-items:center;gap:6px;padding:0;position:relative}
+.sw2 span{width:48px;height:48px;border-radius:50%;background:var(--c);display:grid;place-items:center;color:#fff;box-shadow:inset 0 0 0 2px rgba(255,255,255,.2);transition:box-shadow .2s,transform .2s}
+.sw2.on span{box-shadow:0 0 0 3px var(--bg),0 0 0 5.5px var(--c)}
+.sw2 small,.bgo small{font-size:11.5px;font-weight:700;color:var(--tx)}
+.sw2.cust span.rb{background:conic-gradient(#ef4444,#f59e0b,#22c55e,#06b6d4,#3b82f6,#a855f7,#ef4444)}
+.sw2.cust input{position:absolute;top:0;left:50%;margin-left:-24px;width:48px;height:48px;padding:0;border:0;opacity:0;cursor:pointer}
+.bgo .pv{width:100%;aspect-ratio:3/4;border-radius:14px;border:2px solid var(--line);display:flex;flex-direction:column;justify-content:flex-end;gap:5px;padding:8px;box-shadow:0 0 0 1px rgba(128,128,128,.18) inset;transition:border-color .2s,transform .2s}
+.bgo .pv i{display:block;width:100%;height:15px;border-radius:5px;outline:1px solid rgba(128,128,128,.25)}
+.bgo.on .pv{border-color:var(--acc);transform:scale(1.04)}.bgo.on small{color:var(--acc)}
+
+.tabs button{display:flex;align-items:center;justify-content:center;gap:6px}
+.ach .xpb{display:block;width:max-content}
+.toast{width:max-content;max-width:calc(100% - 24px)}.toast b{white-space:nowrap}
