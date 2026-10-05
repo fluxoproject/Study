@@ -25,27 +25,52 @@ app.put('/api/state',auth,w(async(q,s)=>{const{data,updatedAt}=q.body||{};if(!da
 const r=await pool.query('INSERT INTO app_state(user_id,data,updated_at) VALUES($1,$2,$3) ON CONFLICT(user_id) DO UPDATE SET data=EXCLUDED.data,updated_at=EXCLUDED.updated_at WHERE app_state.updated_at<=EXCLUDED.updated_at RETURNING updated_at',[q.user.id,JSON.stringify(data),updatedAt]);
 if(r.rowCount)return s.json({ok:true,updatedAt});const c=await pool.query('SELECT data,updated_at FROM app_state WHERE user_id=$1',[q.user.id]);s.status(409).json({error:'Há uma versão mais recente na nuvem.',data:c.rows[0].data,updatedAt:Number(c.rows[0].updated_at)})}));
 // Gemini às vezes responde 503 (sobrecarga) ou 429: tenta 2x em cada modelo e, se falhar, usa o modelo reserva.
+// Pensar demais deixa o tutor lento: pedimos "sem pensar" (thinkingBudget 0). Se o modelo não aceitar (erro 400), repete sem esse ajuste.
 const MODELS=[GEMINI_MODEL,...(process.env.GEMINI_FALLBACK||'gemini-flash-lite-latest').split(',').map(x=>x.trim())].filter((x,i,a)=>x&&a.indexOf(x)===i);
-async function gemini(body){let last={status:0};
+const noThink=new Set(),sleep=ms=>new Promise(z=>setTimeout(z,ms));
+async function gemini(obj,stream){let last={status:0};
 for(const mod of MODELS)for(let t=0;t<2;t++){
-try{const r=await fetch('https://generativelanguage.googleapis.com/v1beta/models/'+encodeURIComponent(mod)+':generateContent',{method:'POST',headers:{'content-type':'application/json','x-goog-api-key':GEMINI_API_KEY},body,signal:AbortSignal.timeout(20000)});
-const j=await r.json().catch(()=>({}));if(r.ok)return j;
-last={status:r.status};console.error('Gemini',mod,r.status,JSON.stringify(j).slice(0,300));
+const ac=new AbortController(),tm=setTimeout(()=>ac.abort(),15000);
+try{const o=noThink.has(mod)?obj:{...obj,generationConfig:{...obj.generationConfig,thinkingConfig:{thinkingBudget:0}}};
+const r=await fetch('https://generativelanguage.googleapis.com/v1beta/models/'+encodeURIComponent(mod)+(stream?':streamGenerateContent?alt=sse':':generateContent'),{method:'POST',headers:{'content-type':'application/json','x-goog-api-key':GEMINI_API_KEY},body:JSON.stringify(o),signal:ac.signal});
+clearTimeout(tm);
+if(r.ok)return stream?r:await r.json();
+const j=await r.json().catch(()=>({}));last={status:r.status};console.error('Gemini',mod,r.status,JSON.stringify(j).slice(0,300));
+if(r.status==400&&!noThink.has(mod)){noThink.add(mod);t--;continue}
 if(![429,500,502,503,504].includes(r.status))break}
-catch(e){last={status:0};console.error('Gemini',mod,e.message)}
-await new Promise(z=>setTimeout(z,700*(t+1)))}
+catch(e){clearTimeout(tm);last={status:0};console.error('Gemini',mod,e.message)}
+await sleep(500*(t+1))}
 throw Object.assign(new Error('gemini'),last)}
-app.post('/api/tutor',auth,tlim,w(async(q,s)=>{if(!GEMINI_API_KEY)return s.status(503).json({error:'Tutor ainda não configurado no servidor.'});
-const msg=String(q.body.message||'').slice(0,2000);if(!msg.trim())return s.status(400).json({error:'Escreva sua dúvida.'});
-const hist=(Array.isArray(q.body.history)?q.body.history:[]).slice(-8).map(m=>({role:m.u?'user':'model',text:String(m.t||'').slice(0,2000)})).filter(m=>m.text);
+const SYS='Você é o tutor do StudyFlow, para estudantes do Ensino Médio no Brasil. Responda em português do Brasil. SEJA BREVE: vá direto ao ponto, em no máximo 5 a 8 linhas, com um exemplo curto. Só se aprofunde se o aluno pedir mais detalhes. NUNCA use LaTeX nem o símbolo $ para fórmulas. Escreva matemática em texto simples com símbolos comuns: Δ, √, x², ×, ÷, ±, π, ≤, ≥, e frações como a/b ou (a+b)/(c). Evite tabelas e títulos com #; use no máximo **negrito** e listas simples com "-". Ao criar exercícios, não entregue o gabarito junto: peça que o aluno tente primeiro.';
+function prep(q){const msg=String(q.body.message||'').slice(0,2000);if(!msg.trim())return{err:'Escreva sua dúvida.'};
+const hist=(Array.isArray(q.body.history)?q.body.history:[]).slice(-6).map(m=>({role:m.u?'user':'model',text:String(m.t||'').slice(0,1200)})).filter(m=>m.text);
 const turns=[...hist,{role:'user',text:msg}].reduce((a,m)=>{a.at(-1)?.role===m.role?a.at(-1).text+='\n'+m.text:a.push({...m});return a},[]);while(turns[0].role!=='user')turns.shift();
-const body=JSON.stringify({systemInstruction:{parts:[{text:'Você é o tutor do StudyFlow, para estudantes do Ensino Médio no Brasil. Responda em português do Brasil, de forma clara, curta e didática, com exemplos. Ao criar exercícios, não entregue o gabarito junto: peça que o aluno tente primeiro.'}]},contents:turns.map(t=>({role:t.role,parts:[{text:t.text}]})),generationConfig:{maxOutputTokens:4096}});
-let j,fail=0;
-try{j=await gemini(body)}catch(e){fail=e.status||0;console.error('Gemini falhou:',fail)}
-if(!j)return s.status(fail==429?429:502).json({error:fail==429?'Limite do tutor atingido. Tente de novo em instantes.':'O tutor está sobrecarregado agora. Tente de novo em alguns segundos.'});
-const cand=j.candidates&&j.candidates[0],reply=((cand&&cand.content&&cand.content.parts)||[]).map(p=>p.text||'').join('').trim();
-if(!reply&&((j.promptFeedback&&j.promptFeedback.blockReason)||(cand&&cand.finishReason==='SAFETY')))return s.json({reply:'Não consigo ajudar com esse pedido. Tente perguntar de outro jeito, focado nos estudos.'});
-s.json({reply:reply||'Não consegui responder essa. Tente reformular a pergunta.'})}));
+return{obj:{systemInstruction:{parts:[{text:SYS}]},contents:turns.map(t=>({role:t.role,parts:[{text:t.text}]})),generationConfig:{maxOutputTokens:1500,temperature:.6}}}}
+const textOf=j=>{const c=j&&j.candidates&&j.candidates[0];return((c&&c.content&&c.content.parts)||[]).filter(p=>!p.thought).map(p=>p.text||'').join('')};
+const blocked=j=>!!((j&&j.promptFeedback&&j.promptFeedback.blockReason)||(j&&j.candidates&&j.candidates[0]&&j.candidates[0].finishReason==='SAFETY'));
+const BLOCKMSG='Não consigo ajudar com esse pedido. Tente perguntar de outro jeito, focado nos estudos.',EMPTY='Não consegui responder essa. Tente reformular a pergunta.';
+const errOf=st=>({status:st==429?429:502,error:st==429?'Limite do tutor atingido. Tente de novo em instantes.':'O tutor está sobrecarregado agora. Tente de novo em alguns segundos.'});
+// Versão em tempo real: o texto vai chegando aos poucos (muito mais rápido de ver) em vez de esperar a resposta inteira.
+app.post('/api/tutor/stream',auth,tlim,async(q,s)=>{try{
+if(!GEMINI_API_KEY)return s.status(503).json({error:'Tutor ainda não configurado no servidor.'});
+const pr=prep(q);if(pr.err)return s.status(400).json({error:pr.err});
+let r;try{r=await gemini(pr.obj,true)}catch(e){const x=errOf(e.status||0);return s.status(x.status).json({error:x.error})}
+s.status(200).set({'Content-Type':'text/event-stream; charset=utf-8','Cache-Control':'no-cache, no-transform','Connection':'keep-alive','X-Accel-Buffering':'no'});s.flushHeaders();
+const send=o=>{if(!s.writableEnded)s.write('data: '+JSON.stringify(o)+'\n\n')};
+const rd=r.body.getReader(),dec=new TextDecoder();let buf='',any=0,blk=0,gone=false;s.on('close',()=>{gone=true;rd.cancel().catch(()=>{})});
+try{for(;;){const{done,value}=await rd.read();if(done)break;buf+=dec.decode(value,{stream:true});
+let i;while((i=buf.search(/\r?\n\r?\n/))>=0){const ev=buf.slice(0,i);buf=buf.slice(i).replace(/^\r?\n\r?\n/,'');
+for(const ln of ev.split(/\r?\n/)){if(!ln.startsWith('data:'))continue;let j;try{j=JSON.parse(ln.slice(5))}catch(e){continue}
+if(blocked(j))blk=1;const t=textOf(j);if(t){any=1;send({t})}}}}}
+catch(e){if(!gone){console.error('Stream:',e.message);send({err:any?'A resposta foi cortada no meio.':'O tutor está sobrecarregado agora. Tente de novo.'})}}
+if(!any&&!gone)send({t:blk?BLOCKMSG:EMPTY});send({done:1});s.end()}
+catch(e){console.error(e);if(!s.headersSent)s.status(500).json({error:'Erro no servidor. Tente novamente.'});else s.end()}});
+// Versão normal (usada se o tempo real falhar)
+app.post('/api/tutor',auth,tlim,w(async(q,s)=>{if(!GEMINI_API_KEY)return s.status(503).json({error:'Tutor ainda não configurado no servidor.'});
+const pr=prep(q);if(pr.err)return s.status(400).json({error:pr.err});
+let j;try{j=await gemini(pr.obj,false)}catch(e){const x=errOf(e.status||0);return s.status(x.status).json({error:x.error})}
+const reply=textOf(j).trim();if(!reply&&blocked(j))return s.json({reply:BLOCKMSG});
+s.json({reply:reply||EMPTY})}));
 // Site (front-end) na mesma raiz do servidor. Só estes 3 arquivos são públicos; server.js e package.json nunca são expostos.
 const pub={'/':'index.html','/index.html':'index.html','/style.css':'style.css','/app.js':'app.js'};
 app.get(Object.keys(pub),(q,s)=>s.sendFile(path.join(__dirname,pub[q.path])));

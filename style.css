@@ -241,3 +241,63 @@ svg[data-i=trophy]{animation:bounce 3.2s ease-in-out infinite}
 @keyframes flame{0%,100%{transform:scale(1) rotate(0)}30%{transform:scale(1.1,.94) rotate(-4deg)}60%{transform:scale(.95,1.08) rotate(3deg)}}
 @keyframes pulse{50%{transform:scale(1.18)}}
 @media (prefers-reduced-motion:reduce){*,*::before,*::after{animation-duration:.01ms!important;animation-iteration-count:1!important;animation-delay:0s!important;transition-duration:.01ms!important}.dots i{animation-duration:.96s!important;animation-iteration-count:infinite!important;animation-delay:calc(var(--k)*.12s - .96s)!important}}
+
+/* ================= MAIS ARREDONDADO ================= */
+.card{border-radius:26px;padding:15px}
+.p,.g{border-radius:20px}
+input,select{border-radius:16px}
+.tabs{border-radius:24px}.tabs button{border-radius:19px}
+.sq{border-radius:16px}
+.mini{border-radius:13px}
+.tile,.cover{border-radius:28px}
+.note,.chips button{border-radius:18px}
+.msg{border-radius:24px 24px 24px 8px}.msg.u{border-radius:24px 24px 8px 24px}
+.mt{border-radius:28px}
+#nav{border-radius:36px}#nav a{border-radius:24px}
+#nav .pill,#nav .ni{border-radius:18px}
+.card.hero2{border-radius:32px}
+.chart b{border-radius:10px 10px 5px 5px}
+.tbar{border-radius:32px}
+.bar,.bar i{border-radius:999px}
+.abar .circ,.top .circ{border-radius:50%}
+.logo-mark{border-radius:28px}
+.t{border-radius:18px}
+
+/* ================= CARD DA META MENOR ================= */
+.card.hero2{padding:14px 16px 0}
+.hh h2{font-size:19px;margin:1px 0 0}
+.eyb{font-size:10px}
+.hm{margin:10px 0 10px}
+.hero2 .big.xl{font-size:28px;line-height:1.1;margin:1px 0}
+.hero2 small{font-size:12px}
+.hero2 .p{padding:10px 14px;margin-bottom:24px;font-size:14.5px;animation:breathe 3.2s ease-in-out infinite}
+.wave{height:40px}.wave.w2{bottom:5px}
+.hero2 .mini.wh{width:30px;height:30px}
+
+/* ================= TUTOR EM TEMPO REAL ================= */
+.msg.stream::after{content:"";display:inline-block;width:8px;height:15px;margin-left:3px;vertical-align:-2px;border-radius:3px;background:var(--acc);animation:blink .9s steps(2) infinite}
+.msg i{font-style:italic}
+
+/* ================= SÍMBOLO DA MATÉRIA ================= */
+.icb{position:relative;display:block;flex:none;transition:transform .3s var(--spring)}.icb:active{transform:scale(.88)}
+.icb .edt{position:absolute;right:-5px;bottom:-5px;width:20px;height:20px;border-radius:50%;background:var(--acc);color:var(--onacc);display:grid;place-items:center;box-shadow:0 3px 8px rgba(0,0,0,.3)}
+.icp{animation:up .45s var(--ease)}
+.icg{display:grid;grid-template-columns:repeat(7,1fr);gap:8px;margin:12px 0}
+.icg button{aspect-ratio:1;border-radius:18px;display:grid;place-items:center;background:var(--soft);color:var(--tx);transition:transform .25s var(--spring),background .2s;animation:pop .4s var(--spring) both;animation-delay:calc(var(--k,0)*18ms)}
+.icg button.on{background:var(--acc);color:var(--onacc);transform:scale(1.1)}
+.icg button:active{transform:scale(.85)}
+
+/* ================= MAIS ANIMAÇÃO ================= */
+.p,.g,.qb,.sc{transition:transform .28s var(--spring),box-shadow .25s}
+.p:active,.g:active,.qb:active,.scs .card:active{transform:scale(.94)}
+.tile svg,.sq svg{transition:transform .45s var(--spring)}
+.tile:hover svg,.tile:active svg,.card:hover .sq svg{transform:rotate(-10deg) scale(1.18)}
+.ci{animation:floaty 4s ease-in-out infinite}.ci.k{animation-delay:-2s}
+.circ.av{animation:avpulse 3.4s ease-in-out infinite}
+.sec h2{position:relative}
+.abar .brand{animation:fadein .6s .1s both}
+.cf{position:fixed;width:8px;height:8px;margin:-4px 0 0 -4px;border-radius:3px;pointer-events:none;z-index:99;animation:cf .85s cubic-bezier(.2,.7,.3,1) forwards}
+@keyframes cf{0%{transform:translate(0,0) rotate(0) scale(1)}100%{transform:translate(var(--dx),var(--dy)) rotate(var(--rot)) scale(.3);opacity:0}}
+@keyframes blink{50%{opacity:0}}
+@keyframes breathe{0%,100%{box-shadow:0 0 0 0 rgba(255,255,255,.35)}50%{box-shadow:0 0 0 8px rgba(255,255,255,0)}}
+@keyframes avpulse{0%,100%{box-shadow:0 0 0 0 color-mix(in srgb,var(--acc) 45%,transparent)}50%{box-shadow:0 0 0 7px transparent}}
