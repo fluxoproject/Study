@@ -2,7 +2,7 @@
 // Endereço do servidor no Render (login, nuvem e tutor). Funciona tanto pelo GitHub Pages quanto pelo próprio Render.
 const API_URL='https://study-sw84.onrender.com';
 // Cole aqui o mesmo Client ID Web criado no Google Cloud (termina em .apps.googleusercontent.com).
-const GOOGLE_CLIENT_ID='COLE_AQUI_O_SEU_CLIENT_ID.apps.googleusercontent.com';
+const GOOGLE_CLIENT_ID='650684317927-tg1vr1nt4opu0u5ukt2vl7t29o7qiddd.apps.googleusercontent.com';
 // ========================================================
 
 const K='studyflow.v1',$=s=>document.querySelector(s),uid=()=>Math.random().toString(36).slice(2,9),
