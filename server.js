@@ -1,5 +1,6 @@
-const express=require('express'),path=require('path'),{Pool}=require('pg'),bcrypt=require('bcryptjs'),jwt=require('jsonwebtoken'),helmet=require('helmet'),rateLimit=require('express-rate-limit');
-const {DATABASE_URL,JWT_SECRET,GEMINI_API_KEY,GEMINI_MODEL='gemini-flash-latest',PORT=3000}=process.env;
+const express=require('express'),path=require('path'),{Pool}=require('pg'),bcrypt=require('bcryptjs'),jwt=require('jsonwebtoken'),helmet=require('helmet'),rateLimit=require('express-rate-limit'),{OAuth2Client}=require('google-auth-library');
+const {DATABASE_URL,JWT_SECRET,GEMINI_API_KEY,GEMINI_MODEL='gemini-flash-latest',GOOGLE_CLIENT_ID='',PORT=3000}=process.env;
+const googleClient=new OAuth2Client();
 if(!DATABASE_URL||!JWT_SECRET){console.error('Faltam variáveis de ambiente: DATABASE_URL e JWT_SECRET');process.exit(1)}
 const pool=new Pool({connectionString:DATABASE_URL,ssl:/\.render\.com|neon\.tech|supabase\.|sslmode=/.test(DATABASE_URL)?{rejectUnauthorized:false}:false,idleTimeoutMillis:30000,connectionTimeoutMillis:15000,max:5});
 pool.on('error',e=>console.error('Conexão ociosa do banco encerrada:',e.message));
@@ -20,6 +21,14 @@ if((await pool.query('SELECT 1 FROM users WHERE email=$1',[email])).rowCount)ret
 const r=await pool.query('INSERT INTO users(email,name,password_hash) VALUES($1,$2,$3) RETURNING id,email',[email,name,await bcrypt.hash(pw,10)]);s.json({token:sign(r.rows[0]),email})}));
 app.post('/api/login',lim,w(async(q,s)=>{const email=String(q.body.email||'').trim().toLowerCase(),r=await pool.query('SELECT * FROM users WHERE email=$1',[email]),u=r.rows[0];
 if(!u||!(await bcrypt.compare(String(q.body.password||''),u.password_hash)))return s.status(401).json({error:'E-mail ou senha incorretos.'});s.json({token:sign(u),email:u.email})}));
+// O token do Google é conferido aqui no servidor. Nunca confie apenas no nome/foto enviados pelo navegador.
+app.post('/api/google',lim,w(async(q,s)=>{if(!GOOGLE_CLIENT_ID)return s.status(503).json({error:'Login Google ainda não foi configurado no servidor.'});
+const ticket=await googleClient.verifyIdToken({idToken:String(q.body.credential||''),audience:GOOGLE_CLIENT_ID}),p=ticket.getPayload();
+if(!p||!p.email||!p.email_verified)return s.status(401).json({error:'Não foi possível confirmar esta conta Google.'});
+const email=p.email.toLowerCase(),name=String(p.name||'').slice(0,60),photo=String(p.picture||'').slice(0,500);
+let r=await pool.query('SELECT id,email FROM users WHERE email=$1',[email]);let u=r.rows[0];
+if(!u){r=await pool.query('INSERT INTO users(email,name,password_hash) VALUES($1,$2,$3) RETURNING id,email',[email,name,await bcrypt.hash(require('crypto').randomBytes(32).toString('hex'),10)]);u=r.rows[0]}
+s.json({token:sign(u),email:u.email,name,photo})}));
 app.get('/api/state',auth,w(async(q,s)=>{const r=await pool.query('SELECT data,updated_at FROM app_state WHERE user_id=$1',[q.user.id]);s.json(r.rows[0]?{data:r.rows[0].data,updatedAt:Number(r.rows[0].updated_at)}:{data:null,updatedAt:0})}));
 app.put('/api/state',auth,w(async(q,s)=>{const{data,updatedAt}=q.body||{};if(!data||typeof data!=='object'||!Number.isFinite(updatedAt))return s.status(400).json({error:'Dados inválidos.'});
 const r=await pool.query('INSERT INTO app_state(user_id,data,updated_at) VALUES($1,$2,$3) ON CONFLICT(user_id) DO UPDATE SET data=EXCLUDED.data,updated_at=EXCLUDED.updated_at WHERE app_state.updated_at<=EXCLUDED.updated_at RETURNING updated_at',[q.user.id,JSON.stringify(data),updatedAt]);
@@ -41,11 +50,12 @@ if(![429,500,502,503,504].includes(r.status))break}
 catch(e){clearTimeout(tm);last={status:0};console.error('Gemini',mod,e.message)}
 await sleep(500*(t+1))}
 throw Object.assign(new Error('gemini'),last)}
-const SYS='Você é o tutor do StudyFlow, para estudantes do Ensino Médio no Brasil. Responda em português do Brasil. SEJA BREVE: vá direto ao ponto, em no máximo 5 a 8 linhas, com um exemplo curto. Só se aprofunde se o aluno pedir mais detalhes. NUNCA use LaTeX nem o símbolo $ para fórmulas. Escreva matemática em texto simples com símbolos comuns: Δ, √, x², ×, ÷, ±, π, ≤, ≥, e frações como a/b ou (a+b)/(c). Evite tabelas e títulos com #; use no máximo **negrito** e listas simples com "-". Ao criar exercícios, não entregue o gabarito junto: peça que o aluno tente primeiro.';
+const SYS='Você é o tutor do StudyFlow, para estudantes do Ensino Médio no Brasil. Responda em português do Brasil. SEJA BREVE: vá direto ao ponto, em no máximo 5 a 8 linhas, com um exemplo curto. Só se aprofunde se o aluno pedir mais detalhes. NUNCA use LaTeX nem o símbolo $ para fórmulas. Escreva matemática em texto simples com símbolos comuns: Δ, √, x², ×, ÷, ±, π, ≤, ≥, e frações como a/b ou (a+b)/(c). Evite tabelas e títulos com #; use no máximo **negrito** e listas simples com "-". Ao criar exercícios, não entregue o gabarito junto: peça que o aluno tente primeiro. Você também pode operar o StudyFlow quando o aluno pedir claramente uma ação. Depois da resposta humana, coloque UMA linha exatamente no formato [[ACTION:{"type":"..."}]]. Tipos permitidos: add_task {title,subject,due,min,pr}, complete_task {title}, remove_task {title}, add_subject {name}, add_review {topic,subject,due}, add_exam {subject,due}, add_grade {subject,name,value}, set_goal {minutes}, start_focus {subject,topic,minutes}, navigate {page}. Use datas YYYY-MM-DD; se não houver data, use a de hoje. Para pedidos apenas de explicação, não envie ACTION. Nunca invente uma ação que o aluno não pediu.';
 function prep(q){const msg=String(q.body.message||'').slice(0,2000);if(!msg.trim())return{err:'Escreva sua dúvida.'};
+const c=q.body.appContext||{},ctx=JSON.stringify({materias:Array.isArray(c.subjects)?c.subjects.slice(0,20):[],tarefas:Array.isArray(c.tasks)?c.tasks.slice(0,30):[],meta:Number(c.goal)||60}).slice(0,3000);
 const hist=(Array.isArray(q.body.history)?q.body.history:[]).slice(-6).map(m=>({role:m.u?'user':'model',text:String(m.t||'').slice(0,1200)})).filter(m=>m.text);
 const turns=[...hist,{role:'user',text:msg}].reduce((a,m)=>{a.at(-1)?.role===m.role?a.at(-1).text+='\n'+m.text:a.push({...m});return a},[]);while(turns[0].role!=='user')turns.shift();
-return{obj:{systemInstruction:{parts:[{text:SYS}]},contents:turns.map(t=>({role:t.role,parts:[{text:t.text}]})),generationConfig:{maxOutputTokens:1500,temperature:.6}}}}
+return{obj:{systemInstruction:{parts:[{text:SYS+'\nContexto atual do app (use apenas para atender pedidos de organização): '+ctx}]},contents:turns.map(t=>({role:t.role,parts:[{text:t.text}]})),generationConfig:{maxOutputTokens:1500,temperature:.6}}}}
 const textOf=j=>{const c=j&&j.candidates&&j.candidates[0];return((c&&c.content&&c.content.parts)||[]).filter(p=>!p.thought).map(p=>p.text||'').join('')};
 const blocked=j=>!!((j&&j.promptFeedback&&j.promptFeedback.blockReason)||(j&&j.candidates&&j.candidates[0]&&j.candidates[0].finishReason==='SAFETY'));
 const BLOCKMSG='Não consigo ajudar com esse pedido. Tente perguntar de outro jeito, focado nos estudos.',EMPTY='Não consegui responder essa. Tente reformular a pergunta.';
@@ -71,10 +81,9 @@ const pr=prep(q);if(pr.err)return s.status(400).json({error:pr.err});
 let j;try{j=await gemini(pr.obj,false)}catch(e){const x=errOf(e.status||0);return s.status(x.status).json({error:x.error})}
 const reply=textOf(j).trim();if(!reply&&blocked(j))return s.json({reply:BLOCKMSG});
 s.json({reply:reply||EMPTY})}));
-// Site (front-end) na mesma raiz do servidor. Só estes arquivos (e a pasta icons) são públicos; server.js e package.json nunca são expostos.
-const pub={'/':'index.html','/index.html':'index.html','/style.css':'style.css','/app.js':'app.js','/manifest.webmanifest':'manifest.webmanifest','/sw.js':'sw.js'};
+// Site (front-end) na mesma raiz do servidor. Só esta lista explícita é pública.
+const pub={'/':'index.html','/index.html':'index.html','/style.css':'style.css','/app.js':'app.js','/manifest.webmanifest':'manifest.webmanifest','/sw.js':'sw.js','/favicon-32.png':'favicon-32.png','/apple-touch-icon.png':'apple-touch-icon.png','/icon-192.png':'icon-192.png','/icon-512.png':'icon-512.png','/icon-maskable-512.png':'icon-maskable-512.png','/logo-mask.png':'logo-mask.png'};
 app.get(Object.keys(pub),(q,s)=>{s.set('Cache-Control','no-cache');if(q.path.endsWith('.webmanifest'))s.type('application/manifest+json');s.sendFile(path.join(__dirname,pub[q.path]))});
-app.use('/icons',express.static(path.join(__dirname,'icons'),{maxAge:'7d',index:false}));
 app.use((q,s)=>s.status(404).type('text').send('Não encontrado'));
 (async()=>{await pool.query(`CREATE TABLE IF NOT EXISTS users(id SERIAL PRIMARY KEY,email TEXT UNIQUE NOT NULL,name TEXT,password_hash TEXT NOT NULL,created_at TIMESTAMPTZ DEFAULT now());
 CREATE TABLE IF NOT EXISTS app_state(user_id INT PRIMARY KEY REFERENCES users(id) ON DELETE CASCADE,data JSONB NOT NULL,updated_at BIGINT NOT NULL)`);
