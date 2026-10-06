@@ -353,3 +353,20 @@ body{background:linear-gradient(155deg,var(--bg),color-mix(in srgb,var(--bg) 86%
 .ai-tools{display:flex;flex-wrap:wrap;gap:7px;margin:15px 0}.ai-tools .qb{margin:0;background:color-mix(in srgb,var(--card) 76%,transparent);border-color:color-mix(in srgb,var(--acc) 22%,var(--line))}
 .ai-tools .qb:first-child{color:var(--acc)}
 .tbar{box-shadow:0 12px 34px rgba(0,0,0,.2),inset 0 1px 0 var(--glh)}
+
+/* ===== StudyFlow v3: personalização + notificações + estabilidade ===== */
+html[data-font=small]{font-size:94%}html[data-font=large]{font-size:108%}
+html[data-density=compact] #app{padding-top:14px}html[data-density=compact] .card{margin-bottom:8px}html[data-density=compact] .f{gap:5px}
+html[data-density=comfortable] .card{margin-bottom:14px}html[data-density=comfortable] .f{gap:10px}
+html[data-radius=sharp] .card,html[data-radius=sharp] .tile,html[data-radius=sharp] input,html[data-radius=sharp] select,html[data-radius=sharp] .g,html[data-radius=sharp] .p,html[data-radius=sharp] .qb{border-radius:8px}
+html[data-radius=round] .card,html[data-radius=round] .tile,html[data-radius=round] .g,html[data-radius=round] .p,html[data-radius=round] .qb{border-radius:20px}
+html[data-motion=off] *,html[data-motion=off] *::before,html[data-motion=off] *::after{animation:none!important;transition:none!important;scroll-behavior:auto!important}
+.google-g{width:19px;height:19px;flex:none;display:block}
+.google{gap:10px}
+.nlist{display:flex;flex-direction:column;gap:8px;max-height:min(62vh,520px);overflow:auto;margin-top:2px}.nrow{display:flex;gap:10px;align-items:flex-start;padding:11px;border:1px solid var(--line);background:var(--soft);border-radius:14px}.nrow.unread{border-color:color-mix(in srgb,var(--acc) 55%,var(--line));box-shadow:inset 3px 0 0 var(--acc)}.nicon{width:32px;height:32px;display:grid;place-items:center;border-radius:10px;background:color-mix(in srgb,var(--acc) 17%,transparent);color:var(--acc);flex:none}.nrow b{font-size:13.5px}
+.avatar-img{background:var(--acc)}.circ.av{overflow:hidden}.circ.av .avatar-img{width:100%;height:100%;object-fit:cover}
+/* A barra fina animada do cabeçalho foi removida para não parecer carregamento. */
+.abar::after{display:none!important}
+/* preferências da nova central de personalização */
+.prefgrid{display:grid;grid-template-columns:repeat(3,1fr);gap:8px;margin-bottom:4px}.prefbtn{padding:10px 8px;border:1px solid var(--line);border-radius:12px;background:var(--card);font-weight:700}.prefbtn.on{background:var(--acc);border-color:transparent;color:var(--onacc)}
+@media(max-width:380px){.prefgrid{grid-template-columns:1fr 1fr}.prefbtn{font-size:13px}}
