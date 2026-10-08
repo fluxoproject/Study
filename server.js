@@ -114,6 +114,7 @@ if(ans.trim().length<2)return s.status(400).json({error:'Escreva sua resposta pr
 let j;try{j=await gemini({systemInstruction:{parts:[{text:'Você corrige respostas de alunos do Ensino Médio no Brasil, comparando com a resposta esperada. Seja justo e específico. Responda APENAS com JSON: {"score": número de 0 a 10 (até 1 casa decimal), "feedback": "2 a 4 frases em português: o que acertou, o que faltou e como melhorar"}. Sem LaTeX.'}]},contents:[{role:'user',parts:[{text:'Conteúdo: '+String(b.topic||'').slice(0,200)+'\nPergunta: '+String(b.q||'').slice(0,900)+'\nResposta esperada: '+String(b.model||'').slice(0,1200)+'\nResposta do aluno: '+ans}]}],generationConfig:{maxOutputTokens:700,temperature:.2,responseMimeType:'application/json'}},false,30000)}
 catch(e){return s.status(502).json({error:'Não consegui corrigir agora. Tente de novo.'})}
 try{const d=JSON.parse(textOf(j).replace(/^\s*```(?:json)?/i,'').replace(/```\s*$/,'').trim());s.json({score:Math.max(0,Math.min(10,Number(d.score)||0)),feedback:String(d.feedback||'').slice(0,800)})}catch(e){s.status(502).json({error:'Não consegui corrigir agora. Tente de novo.'})}}));
+app.post('/api/packs/clear',auth,w(async(q,s)=>{await pool.query('DELETE FROM packs WHERE user_id=$1',[q.user.id]);s.json({ok:true})}));
 app.get('/api/packs',auth,w(async(q,s)=>{const r=await pool.query('SELECT data FROM packs WHERE user_id=$1 AND created_at>$2 ORDER BY created_at LIMIT 20',[q.user.id,Number(q.query.since)||0]);s.json({packs:r.rows.map(x=>x.data)})}));
 
 // ================= Push no celular =================

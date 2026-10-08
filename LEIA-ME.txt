@@ -1,0 +1,18 @@
+StudyFlow 2.0 - o que fazer
+
+1) Substitua no repositório (GitHub) estes arquivos: app.js, style.css, sw.js, server.js, package.json.
+   Os outros (index.html, ícones, manifest) não mudaram.
+   Se o deploy no Render reclamar do package-lock.json, apague esse arquivo do repositório e faça o deploy de novo.
+
+2) Push no celular (opcional, mas você pediu):
+   - No computador, rode:  npx web-push generate-vapid-keys
+   - No Render > seu serviço > Environment, crie:
+       VAPID_PUBLIC_KEY   = (chave pública gerada)
+       VAPID_PRIVATE_KEY  = (chave privada gerada)
+       VAPID_SUBJECT      = mailto:seu@email.com
+   - Depois, no app: Sininho > Push no celular > ativar (no iPhone, instale o app na tela inicial antes).
+   - O plano grátis do Render "dorme" após ~15 min sem uso e, dormindo, o servidor não envia avisos.
+     Para os avisos chegarem sempre, crie um monitor grátis no UptimeRobot chamando
+     https://SEU-SERVIDOR.onrender.com/api/health a cada 5 minutos.
+
+3) As tabelas novas (revisões completas e push) são criadas sozinhas quando o servidor inicia.
