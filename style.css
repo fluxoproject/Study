@@ -315,8 +315,6 @@ input,select{border-radius:16px}
 .sw2 span{width:48px;height:48px;border-radius:50%;background:var(--c);display:grid;place-items:center;color:#fff;box-shadow:inset 0 0 0 2px rgba(255,255,255,.2);transition:box-shadow .2s,transform .2s}
 .sw2.on span{box-shadow:0 0 0 3px var(--bg),0 0 0 5.5px var(--c)}
 .sw2 small,.bgo small{font-size:11.5px;font-weight:700;color:var(--tx)}
-.sw2.cust span.rb{background:conic-gradient(#ef4444,#f59e0b,#22c55e,#06b6d4,#3b82f6,#a855f7,#ef4444)}
-.sw2.cust input{position:absolute;top:0;left:50%;margin-left:-24px;width:48px;height:48px;padding:0;border:0;opacity:0;cursor:pointer}
 .bgo .pv{width:100%;aspect-ratio:3/4;border-radius:14px;border:2px solid var(--line);display:flex;flex-direction:column;justify-content:flex-end;gap:5px;padding:8px;box-shadow:0 0 0 1px rgba(128,128,128,.18) inset;transition:border-color .2s,transform .2s}
 .bgo .pv i{display:block;width:100%;height:15px;border-radius:5px;outline:1px solid rgba(128,128,128,.25)}
 .bgo.on .pv{border-color:var(--acc);transform:scale(1.04)}.bgo.on small{color:var(--acc)}
@@ -481,3 +479,36 @@ i.cnt{font-style:normal;background:var(--acc);color:var(--onacc);border-radius:9
 .ncta{display:inline-flex;gap:3px;align-items:center;font-size:12.5px;font-weight:800;color:var(--acc)}
 .aiact.inf,.aiact.inf svg{color:var(--mu)}
 .ttl.gold{display:flex;justify-content:center;align-items:center;gap:6px}
+
+/* ---- v2.1: sons, revisões e avisos ---- */
+.snds{display:grid;grid-template-columns:repeat(2,1fr);gap:9px;margin:0 0 6px}
+.snd{position:relative;display:flex;flex-direction:column;align-items:flex-start;gap:3px;padding:12px;border-radius:18px;background:var(--card);border:1.5px solid var(--line);text-align:left;overflow:hidden;color:var(--tx)}
+.snd .si{width:34px;height:34px;border-radius:11px;display:grid;place-items:center;background:var(--soft);color:var(--acc);margin-bottom:4px}
+.snd b{font-size:13.5px;line-height:1.2}.snd small{font-size:11.5px}
+.snd.on{border-color:var(--acc);background:color-mix(in srgb,var(--acc) 12%,var(--card))}.snd.on .si{background:var(--acc);color:var(--onacc)}
+.snd.lk{opacity:.6}
+.snd .eq{position:absolute;right:12px;top:14px;display:flex;gap:2px;align-items:flex-end;height:16px}
+.snd .eq u{display:block;width:3px;height:100%;border-radius:2px;background:var(--acc);transform-origin:bottom;animation:eqb 1s ease-in-out infinite}
+.snd .eq u:nth-child(2){animation-delay:.25s}.snd .eq u:nth-child(3){animation-delay:.5s}
+@keyframes eqb{0%,100%{transform:scaleY(.3)}50%{transform:scaleY(1)}}
+html[data-anim=off] .snd .eq u{animation:none;transform:scaleY(.7)}
+.vrow{display:flex;align-items:center;gap:12px;margin-top:12px}
+.vrow .vl{flex:none;width:100px;display:flex;align-items:center;gap:6px;font-size:13px;font-weight:700}
+input[type=range]{-webkit-appearance:none;appearance:none;flex:1;min-width:0;height:6px;border-radius:99px;background:var(--soft);border:0;padding:0;margin:0}
+input[type=range]::-webkit-slider-thumb{-webkit-appearance:none;width:24px;height:24px;border-radius:50%;background:var(--acc);border:3px solid var(--card);box-shadow:0 1px 5px rgba(0,0,0,.35)}
+input[type=range]::-moz-range-thumb{width:18px;height:18px;border-radius:50%;background:var(--acc);border:3px solid var(--card)}
+.modal:has(#sndbox){max-height:88vh;overflow-y:auto}
+.rvh .big{font-size:20px}
+.rvr{display:flex;flex-direction:column;gap:8px}
+.rvr .g{display:flex;flex-direction:column;align-items:flex-start;gap:1px;margin:0;text-align:left;padding:12px 14px}
+.rvr .g small{font-weight:600;color:var(--mu)}
+.rvc{display:flex;flex-direction:column;align-items:center;gap:6px;text-align:center}.rvc h3{margin:6px 0 0;font-size:18px}
+.ntsum{margin-bottom:12px}.ntsum .mini{flex:none}
+.nc{display:flex;gap:12px;align-items:flex-start;cursor:pointer;position:relative;margin-bottom:9px}
+.nc .sq{flex:none}.nc b{display:block;font-weight:800;line-height:1.3}
+.nc:not(.nw) b{font-weight:700;opacity:.82}
+.nc .nb{color:var(--mu);font-size:13.5px;margin:2px 0 6px;overflow-wrap:anywhere}
+.nc.nw{border-color:color-mix(in srgb,var(--acc) 55%,var(--line))}
+.nc.nw::before{content:"";position:absolute;left:0;top:16px;bottom:16px;width:3px;border-radius:0 3px 3px 0;background:var(--acc)}
+.nc .mini:disabled,.ntsum .mini:disabled{opacity:.4}
+.ndh small{text-transform:none;letter-spacing:0;font-weight:700}

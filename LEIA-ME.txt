@@ -1,18 +1,17 @@
-StudyFlow 2.0 - o que fazer
+StudyFlow 2.1 - o que fazer
 
-1) Substitua no repositório (GitHub) estes arquivos: app.js, style.css, sw.js, server.js, package.json.
-   Os outros (index.html, ícones, manifest) não mudaram.
-   Se o deploy no Render reclamar do package-lock.json, apague esse arquivo do repositório e faça o deploy de novo.
+1) No repositório (GitHub), substitua estes 4 arquivos: app.js, style.css, sw.js, server.js.
+   (Os outros — index.html, ícones, manifest, package.json — não mudaram.)
+   O server.js mudou só no texto das revisões da IA (questões um pouco mais fáceis). O Render faz o deploy sozinho.
 
-2) Push no celular (opcional, mas você pediu):
-   - No computador, rode:  npx web-push generate-vapid-keys
-   - No Render > seu serviço > Environment, crie:
-       VAPID_PUBLIC_KEY   = (chave pública gerada)
-       VAPID_PRIVATE_KEY  = (chave privada gerada)
-       VAPID_SUBJECT      = mailto:seu@email.com
-   - Depois, no app: Sininho > Push no celular > ativar (no iPhone, instale o app na tela inicial antes).
-   - O plano grátis do Render "dorme" após ~15 min sem uso e, dormindo, o servidor não envia avisos.
-     Para os avisos chegarem sempre, crie um monitor grátis no UptimeRobot chamando
-     https://SEU-SERVIDOR.onrender.com/api/health a cada 5 minutos.
+2) Abra o app e atualize a página. Se o visual antigo aparecer, feche e abra de novo (o app se atualiza sozinho na 2ª abertura).
 
-3) As tabelas novas (revisões completas e push) são criadas sozinhas quando o servidor inicia.
+3) Onde achar as novidades:
+   - Mais > Sons e música .......... sons relaxantes e músicas calmas (liberados por nível)
+   - Foco (timer) > Sons para estudar .. escolhe os sons sem sair do cronômetro
+   - Mais > Ajustes de avisos ....... tudo que antes ficava dentro de Notificações (push, o que avisar, horário)
+   - Mais > Revisões ................ botão "Revisar agora" e avaliação rápida
+   - Personalização > Sons do app ... liga/desliga os sons de toque, conquistas e avisos
+
+4) Os sons relaxantes são gerados dentro do próprio app (não há arquivos de áudio), por isso funcionam offline e nunca acabam.
+   No iPhone, o áudio pode parar quando a tela bloqueia; no Android costuma continuar tocando.
