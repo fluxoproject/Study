@@ -1,17 +1,24 @@
-StudyFlow 2.1 - o que fazer
+StudyFlow 2.2 - o que fazer
 
 1) No repositório (GitHub), substitua estes 4 arquivos: app.js, style.css, sw.js, server.js.
-   (Os outros — index.html, ícones, manifest, package.json — não mudaram.)
-   O server.js mudou só no texto das revisões da IA (questões um pouco mais fáceis). O Render faz o deploy sozinho.
+   (Os outros — index.html, ícones, manifest, package.json — não mudaram. Os ic-*.png do nível 50 já estão no seu repositório.)
+   O server.js mudou só no texto: revisões da IA ainda mais fáceis e correção mais generosa. O Render faz o deploy sozinho.
 
 2) Abra o app e atualize a página. Se o visual antigo aparecer, feche e abra de novo (o app se atualiza sozinho na 2ª abertura).
 
-3) Onde achar as novidades:
-   - Mais > Sons e música .......... sons relaxantes e músicas calmas (liberados por nível)
-   - Foco (timer) > Sons para estudar .. escolhe os sons sem sair do cronômetro
-   - Mais > Ajustes de avisos ....... tudo que antes ficava dentro de Notificações (push, o que avisar, horário)
-   - Mais > Revisões ................ botão "Revisar agora" e avaliação rápida
-   - Personalização > Sons do app ... liga/desliga os sons de toque, conquistas e avisos
+3) Novidades:
+   - Níveis: 1->2 custa 100 XP e cada nível custa um pouco mais, até 700 XP (49->50). Total até o 50: ~19.600 XP.
+   - Conquistas dão o DOBRO de XP.
+   - Bônus diário: bateu a meta do dia, ganha 25 XP + 5 XP por dia de sequência (até 175 XP).
+   - Escudo de sequência: 1 a cada 7 dias seguidos (máx. 3). Se você faltar 1 dia, o escudo salva a sequência sozinho
+     (só vale se a sequência tinha 3 dias ou mais). Veja em Mais > Progresso.
+   - Sons do app: sinos e marimba suaves, um som diferente para menu, botão principal, botão comum, seleção, gotinha nos sons,
+     conquista, bônus, escudo e uma música de ~3 segundos ao subir de nível (maior no nível 50).
+   - Sons relaxantes e músicas mais macios (menos agudos, mais eco). Eles já começam sozinhos quando você inicia o foco
+     (Personalização > Sons do app controla isso).
+   - Nível 50: Mais > Progresso > "Ícone do app" (cores, dourado e dourado com coroas).
+   - Vidro novo: mais profundo, com brilho na borda e reflexo suave, no modo escuro e no claro.
 
-4) Os sons relaxantes são gerados dentro do próprio app (não há arquivos de áudio), por isso funcionam offline e nunca acabam.
-   No iPhone, o áudio pode parar quando a tela bloqueia; no Android costuma continuar tocando.
+4) Sobre o ícone do app no celular: o celular só lê o ícone na hora de adicionar à tela inicial. Depois de escolher o ícone no app,
+   apague o atalho e adicione de novo (iPhone: Safari > Compartilhar > Adicionar à Tela de Início; Android: menu do Chrome > Instalar app).
+   Também dá para baixar a imagem do ícone na hora em que você o escolhe.

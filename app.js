@@ -16,8 +16,16 @@ let icPick=0,streaming=0,popId=null,busy=0,tErr=null,tmsg='Pensando…',ab=0,lp=
 
 // ---------- dados ----------
 // ---------- versão, novidades e base da sincronização ----------
-const APP_VER='2.1',DEV=(()=>{try{return localStorage['sf.dev']||(localStorage['sf.dev']=Math.random().toString(36).slice(2,10))}catch(e){return'x'}})();
-const CHANGELOG=[{v:'2.1',d:'2026-10-08',t:'Sons, revisões e avisos',it:[
+const APP_VER='2.2',DEV=(()=>{try{return localStorage['sf.dev']||(localStorage['sf.dev']=Math.random().toString(36).slice(2,10))}catch(e){return'x'}})();
+const CHANGELOG=[{v:'2.2',d:'2026-10-09',t:'Níveis mais fáceis e sons novos',it:[
+'Subir de nível ficou mais fácil: começa com 100 XP por nível e cresce até 700',
+'Conquistas dão o dobro de XP',
+'Bônus diário: bata a meta do dia e ganhe XP extra, que cresce com a sequência',
+'Escudo de sequência: 1 a cada 7 dias seguidos, salva sua sequência se você faltar 1 dia',
+'Barulhinhos novos, suaves e diferentes para cada botão, e uma música ao subir de nível',
+'Sons relaxantes mais macios, com menos agudos',
+'Nível 50: troque o ícone do app (cores, dourado e dourado com coroas)',
+'Vidro mais bonito e revisões ainda mais fáceis']},{v:'2.1',d:'2026-10-08',t:'Sons, revisões e avisos',it:[
 'Sons no app: toques, conquistas, nível, foco e avisos (dá para desligar em Personalização)',
 'Sons relaxantes infinitos para estudar: 14 sons de ambiente e 13 músicas calmas, liberados por nível',
 'Revisões mais fáceis: botão Revisar agora, avaliação rápida e nova revisão em poucos toques',
@@ -72,7 +80,7 @@ if(S.pal!=4){S.subjects.forEach((s,i)=>s.color=PAL[i%PAL.length]);S.pal=4}
 const t0=S.updatedAt||0;COLS.forEach(c=>S[c].forEach(x=>{if(x._t==null)x._t=t0}));SCAL.forEach(k=>{if(S.st[k]==null)S.st[k]=t0});
 if(S.set.mode==null){let p={};try{p=JSON.parse(localStorage['sf.pers']||'{}')||{}}catch(e){}S.set={...S.set,mode:localStorage['sf.theme']||'dark',acc:p.acc||null,bg:p.bg||'pad'}}};
 try{S=JSON.parse(localStorage[K])}catch(e){}S=S||empty();fix();snapshot();
-const save=()=>{checkAch();lvCheck();stamp();S.updatedAt=Date.now();persist();push()},sj=id=>S.subjects.find(s=>s.id==id)||{name:'—',color:'#bbb'};
+const save=()=>{dailyCheck();checkAch();lvCheck();stamp();S.updatedAt=Date.now();persist();push()},sj=id=>S.subjects.find(s=>s.id==id)||{name:'—',color:'#bbb'};
 const opts=sel=>S.subjects.map(s=>`<option value="${s.id}" ${s.id==sel?'selected':''}>${esc(s.name)}</option>`).join('');
 
 // ---------- cronômetro: tempo real = soma dos trechos [início, fim] ----------
@@ -88,8 +96,8 @@ setInterval(()=>{const a=S.active;if(!a)return;if(running(a)){a.seen=Date.now();
 
 // ---------- métricas ----------
 const dur=f=>S.sessions.filter(f).reduce((t,s)=>t+s.duration,0);
-function streak(){let n=0,i=0;const ds=new Set(S.sessions.map(s=>day(s.startedAt)));if(!ds.has(add(0,0)))i=-1;while(ds.has(add(0,i-n)))n++;return n}
-const longest=()=>{const d=[...new Set(S.sessions.map(s=>day(s.startedAt)))].sort();let b=0,c=0,p=null;d.forEach(x=>{c=p&&Math.round((new Date(x)-new Date(p))/864e5)==1?c+1:1;b=Math.max(b,c);p=x});return b};
+function streak(){let n=0,i=0;const ds=new Set([...S.sessions.map(s=>day(s.startedAt)),...Object.keys(S.sh||{})]);if(!ds.has(add(0,0)))i=-1;while(ds.has(add(0,i-n)))n++;return n}
+const longest=()=>{const d=[...new Set([...S.sessions.map(s=>day(s.startedAt)),...Object.keys(S.sh||{})])].sort();let b=0,c=0,p=null;d.forEach(x=>{c=p&&Math.round((new Date(x)-new Date(p))/864e5)==1?c+1:1;b=Math.max(b,c);p=x});return b};
 function avg(id){const g=S.grades.filter(g=>g.subject==id);return g.length?g.reduce((t,x)=>t+x.v,0)/g.length:null}
 // notas: a média é sempre arredondada PARA BAIXO (5,95 vira 5,9). A nota que falta tirar arredonda PARA CIMA, para não prometer o que não fecha a conta.
 const fl=v=>Math.floor(v*10+1e-9)/10,ce=v=>Math.ceil(v*10-1e-9)/10,vir=v=>v.toFixed(1).replace('.',','),
@@ -97,7 +105,9 @@ f1=v=>v==null?'—':vir(fl(v)),fc=v=>vir(ce(v)),r2=v=>String(Math.round(v*100)/1
 const achAll=()=>ACH().map(a=>({...a,ok:a.v>=a.t||!!(S.ach||{})[a.id],p:Math.min(1,a.v/a.t)})),
 achList=()=>achAll().filter(a=>achF=='all'||(achF=='got'?a.ok:!a.ok)).sort((x,y)=>(x.ok-y.ok)||(y.p-x.p)),
 achHead=()=>{const A=achAll(),g=A.filter(a=>a.ok);return`<h2 style="margin:22px 0 4px">Conquistas <small class="mu">${g.length}/${A.length} · ${g.reduce((t,a)=>t+a.x,0)} XP</small></h2><div class="strip">${[['all','Todas'],['todo','Em andamento'],['got','Conquistadas']].map(([k,l])=>`<button class="${achF==k?'on':''}" onclick="achF='${k}';render(1)">${l}</button>`).join('')}</div>`};
-const rdone=()=>S.reviews.filter(r=>r.done).length,xp=()=>Math.round(dur(()=>1)/60)+rdone()*20+S.tasks.filter(t=>t.done).length*5+packXp()+chatXp()+achXp(),lvl=()=>Math.min(50,(xp()/500|0)+1),dueRev=()=>S.reviews.filter(r=>!r.done&&r.due<=today()).length;
+// Curva de nível: nível 1→2 custa 100 XP e cada nível custa um pouco mais, até 700 XP (49→50)
+const LVC=l=>Math.round(100+(l-1)*600/48),LVT=(()=>{const a=[0];for(let l=1;l<50;l++)a.push(a[l-1]+LVC(l));return a})(),lvOf=x=>{let l=1;while(l<50&&x>=LVT[l])l++;return l};
+const rdone=()=>S.reviews.filter(r=>r.done).length,xp=()=>Math.round(dur(()=>1)/60)+rdone()*20+S.tasks.filter(t=>t.done).length*5+packXp()+chatXp()+achXp()+(S.dxp||0),lvl=()=>lvOf(xp()),dueRev=()=>S.reviews.filter(r=>!r.done&&r.due<=today()).length;
 const ACH=()=>{const m=dur(()=>1)/60,n=S.sessions.length,tp=new Set(S.sessions.map(s=>s.topic)).size,l=Math.max(longest(),streak()),tasks=S.tasks.filter(t=>t.done).length,subs=new Set(S.sessions.map(s=>s.subject)).size,
 gr=S.grades.length,best=S.subjects.reduce((b,s)=>Math.max(b,avg(s.id)||0),0),pk=(S.packs||[]).filter(p=>p.result),perf=pk.filter(p=>p.result.pct>=100).length,
 lg=S.sessions.reduce((b,s)=>Math.max(b,s.duration/60),0),hr=s=>new Date(s.startedAt).getHours(),dset=f=>new Set(S.sessions.filter(f).map(s=>day(s.startedAt))).size,
@@ -105,7 +115,7 @@ early=dset(s=>hr(s)<8),late=dset(s=>hr(s)>=22),dawn=dset(s=>hr(s)<5),wk=new Set(
 byD={};S.sessions.forEach(s=>byD[day(s.startedAt)]=(byD[day(s.startedAt)]||0)+s.duration);const G=(S.goal||60)*60,gd=Object.values(byD).filter(v=>v>=G).length,dbl=Object.values(byD).some(v=>v>=2*G)?1:0,
 chat=(S.cnt&&S.cnt.chat)||0,act=(S.cnt&&S.cnt.ai)||0,st=S.set||{},wg=S.subjects.filter(s=>avg(s.id)!=null),blue=wg.length>=3&&wg.every(s=>avg(s.id)>=(S.target||8))?1:0,
 cust=['mode','anim','round','font','glass','vib'].filter(k=>st[k]!==undefined&&!(k=='mode'&&st[k]=='dark')&&!(k=='anim'&&st[k]=='normal')&&!(k=='round'&&st[k]=='round')&&!(k=='font'&&st[k]=='m')&&st[k]!==1).length+(st.acc?1:0)+(st.bg&&st.bg!='pad'?1:0);
-const T=(ic,v,a)=>a.map(([id,t,n,d,x])=>[id,ic,n,d,v,t,x]);
+const T=(ic,v,a)=>a.map(([id,t,n,d,x])=>[id,ic,n,d,v,t,x*2]);
 const L=[
 ...T('clock',m,[['h1',60,'1 hora de foco','Acumule 1h estudada',50],['h3',180,'Maratona leve','Acumule 3h estudadas',90],['h5',300,'5 horas de foco','Acumule 5h estudadas',150],['h10',600,'10 horas de foco','Acumule 10h estudadas',300],['h25',1500,'25 horas de foco','Acumule 25h estudadas',500],['h50',3000,'50 horas de foco','Acumule 50h estudadas',900],['h100',6000,'100 horas de foco','Acumule 100h estudadas',1500],['h200',12000,'200 horas de foco','Acumule 200h estudadas',2500],['h400',24000,'Mestre do tempo','Acumule 400h estudadas',4000]]),
 ...T('flame',l,[['s3',3,'Em sequência','Estude 3 dias em sequência',50],['s7',7,'Semana perfeita','Estude 7 dias em sequência',100],['s14',14,'Duas semanas','Estude 14 dias em sequência',200],['s30',30,'Mês imbatível','Estude 30 dias em sequência',400],['s60',60,'Dois meses de fogo','Estude 60 dias em sequência',700],['s100',100,'Centenário','Estude 100 dias em sequência',1200],['s180',180,'Meio ano sem parar','Estude 180 dias em sequência',2000],['s365',365,'Um ano inteiro','Estude 365 dias em sequência',4000]]),
@@ -136,12 +146,18 @@ const L=[
 ...T('palette',cust,[['cust5',5,'Sob medida','Mude 5 opções de personalização',80]]),
 ...T('cloud',S.owner?1:0,[['cloud',1,'Nas nuvens','Entre numa conta e sincronize',40]])];
 // conquistas de nível usam só o XP das outras (se usassem o nível total, entrariam em loop)
-const base=Math.round(m)+rdone()*20+tasks*5+chatXp()+packXp(),got=L.reduce((t,a)=>t+((S.ach||{})[a[0]]?a[6]:0),0),lv=Math.min(50,((base+got)/500|0)+1);
+const base=Math.round(m)+rdone()*20+tasks*5+chatXp()+packXp(),got=L.reduce((t,a)=>t+((S.ach||{})[a[0]]?a[6]:0),0),lv=lvOf(base+got);
 L.push(...T('trophy',lv,[['lv5',5,'Nível 5','Chegue ao nível 5',50],['lv10',10,'Nível 10','Chegue ao nível 10',100],['lv20',20,'Nível 20','Chegue ao nível 20',200],['lv30',30,'Nível 30','Chegue ao nível 30',400],['lv40',40,'Nível 40','Chegue ao nível 40',800],['lv50',50,'Lenda suprema','Chegue ao nível máximo (50)',2000]]));
 return L.map(([id,i,n,d,v,t,x])=>({id,i,n,d,v,t,x}))};
 const chatXp=()=>Math.min((S.cnt&&S.cnt.chat)||0,200)*2;
 // Cada conquista dá XP (a.x) uma única vez, no momento em que é desbloqueada.
 const achXp=()=>ACH().reduce((t,a)=>t+((S.ach||{})[a.id]?a.x:0),0);
+// XP bônus por dia (ao bater a meta) e escudo de sequência (1 a cada 7 dias seguidos, máx. 3; salva 1 dia perdido)
+function dailyCheck(){let ch=false;try{S.dd=S.dd||{};const T0=today(),G=(S.goal||60)*60,ds=new Set([...S.sessions.map(x=>day(x.startedAt)),...Object.keys(S.sh||{})]),y=add(0,-1);
+if((S.shield||0)>0&&!ds.has(y)){let n=0;while(ds.has(add(0,-2-n)))n++;if(n>=3){S.sh=S.sh||{};S.sh[y]=1;S.shield--;ch=true;notify('ach','Escudo usado','Seu escudo salvou a sequência de '+n+' dias. Estude hoje para continuar!',{p:'more',s:'prog'},'shu_'+y);toast('Seu escudo salvou a sequência','','Escudo de sequência')}}
+const st=streak(),mil=Math.floor(st/7);if(mil<(S.shm||0)){S.shm=mil;ch=true}
+if(mil>(S.shm||0)){S.shm=mil;ch=true;if((S.shield||0)<3){S.shield=(S.shield||0)+1;notify('ach','Escudo de sequência ganho','Ele protege sua sequência se você faltar 1 dia.',{p:'more',s:'prog'},'shg_'+T0);toast('Você ganhou um escudo de sequência','','Escudo de sequência')}}
+if(!S.dd[T0]&&dur(x=>day(x.startedAt)==T0)>=G){const b=25+Math.min(st,30)*5;S.dxp=(S.dxp||0)+b;S.dd[T0]=1;ch=true;notify('goal','Meta do dia batida!','+'+b+' XP de bônus · sequência de '+st+' dia(s).',{p:'more',s:'prog'},'dxp_'+T0);toast('Meta do dia batida · sequência de '+st+' dia(s)',b,'Bônus diário')}}catch(e){}return ch}
 function checkAch(){S.ach=S.ach||{};const nw=ACH().filter(a=>a.v>=a.t&&!S.ach[a.id]);if(!nw.length)return false;nw.forEach(a=>S.ach[a.id]=Date.now());if(nw.length>3)notify('ach',nw.length+' conquistas desbloqueadas','Veja todas em Progresso.',{p:'more',s:'prog'},'achm_'+Date.now());else nw.forEach(a=>notify('ach','Conquista: '+a.n,a.d+' · +'+a.x+' XP',{p:'more',s:'prog'},'ach_'+a.id));toast(nw.length==1?nw[0].n:nw.length+' conquistas',nw.reduce((t,a)=>t+a.x,0));return true}
 // ---------- sons do app e sons relaxantes (tudo é gerado no aparelho: funciona offline e nunca acaba) ----------
 // [id, nome, nível que libera, tipo ('a' ambiente, 'm' música), ícone]
@@ -164,9 +180,9 @@ function resume(){if(ctx&&ctx.state!='running')ctx.resume().catch(()=>{})}
 function applyVol(){if(!ctx)return;const t=ctx.currentTime,a=vol('va'),m=vol('vm');mA.gain.setTargetAtTime(a*a*2.2,t,.05);mM.gain.setTargetAtTime(m*m*2.2,t,.05)}
 function init(){if(ctx)return true;if(!AC)return false;try{ctx=new AC()}catch(e){return false}
 const comp=ctx.createDynamicsCompressor();comp.threshold.value=-16;comp.ratio.value=5;comp.connect(ctx.destination);
-mA=ctx.createGain();mM=ctx.createGain();mU=ctx.createGain();mU.gain.value=.9;[mA,mM,mU].forEach(g=>g.connect(comp));
-const len=Math.floor(ctx.sampleRate*3.2),ir=ctx.createBuffer(2,len,ctx.sampleRate);
-for(let c=0;c<2;c++){const d=ir.getChannelData(c);for(let i=0;i<len;i++)d[i]=(Math.random()*2-1)*Math.pow(1-i/len,2.6)}
+mA=ctx.createGain();mM=ctx.createGain();mU=ctx.createGain();mU.gain.value=.9;const mlp=flt('lowpass',6200,.3);mlp.connect(comp);mA.connect(mlp);mM.connect(mlp);mU.connect(comp);
+const len=Math.floor(ctx.sampleRate*4.8),ir=ctx.createBuffer(2,len,ctx.sampleRate);
+for(let c=0;c<2;c++){const d=ir.getChannelData(c);let p=0;for(let i=0;i<len;i++){p=p*.55+(Math.random()*2-1)*.45;d[i]=p*Math.pow(1-i/len,2.3)*1.5}}
 const mk=(bus,v)=>{const c=ctx.createConvolver();c.buffer=ir;const g=ctx.createGain();g.gain.value=v;c.connect(g);g.connect(bus);return c};
 revA=mk(mA,.5);revM=mk(mM,.6);applyVol();return true}
 // ruído em laço sem "tranco" (as pontas se misturam)
@@ -182,10 +198,10 @@ function lfo(l,hz,depth,param){const o=ctx.createOscillator(),g=ctx.createGain()
 function every(l,a,b,fn,first){let h;const f=()=>{if(l.dead)return;try{fn()}catch(e){}h=setTimeout(f,rnd(a,b)*1000)};h=setTimeout(f,(first==null?rnd(a,b)*.4:first)*1000);l.cl.push(()=>clearTimeout(h))}
 function route(l,node,pan,wet){let o=node;if(ctx.createStereoPanner){const p=ctx.createStereoPanner();p.pan.value=pan||0;node.connect(p);o=p}o.connect(l.out);if(wet)o.connect(l.send)}
 // nota com envelope: ataque a, sustenta h, solta com constante r
-function tone(l,f,t,dur,o){o=o||{};const x=ctx.createOscillator(),g=ctx.createGain(),a=o.a==null?.01:o.a,pk=o.g==null?.15:o.g,h=o.h==null?Math.max(0,dur-a):o.h,r=o.r||Math.max(.05,dur/4);
+function tone(l,f,t,dur,o){o=o||{};const x=ctx.createOscillator(),g=ctx.createGain(),a=o.a==null?.03:Math.max(o.a,.02),pk=o.g==null?.15:o.g,h=o.h==null?Math.max(0,dur-a):o.h,r=o.r||Math.max(.05,dur/4);
 x.type=o.w||'sine';x.frequency.setValueAtTime(f,t);if(o.det)x.detune.value=o.det;
 g.gain.setValueAtTime(.0001,t);g.gain.linearRampToValueAtTime(pk,t+a);g.gain.setTargetAtTime(0,t+a+h,r);
-let out=g;if(o.f){const q=flt('lowpass',o.f,.5);g.connect(q);out=q}x.connect(g);
+let out=g;{const q=flt('lowpass',Math.min(o.f||2800,2400),.5);g.connect(q);out=q}x.connect(g);
 if(o.vib){const v=ctx.createOscillator(),vg=ctx.createGain();v.frequency.value=5.2;vg.gain.value=o.vib;v.connect(vg);vg.connect(x.detune);v.start(t);v.stop(t+a+h+r*7)}
 out.connect(l.out);if(o.s)out.connect(l.send);const end=t+a+h+r*7;x.start(t);x.stop(end);x.onended=()=>{try{g.disconnect();out.disconnect()}catch(e){}}}
 function tick(l,f,g,d,q){const t=ctx.currentTime,s=ctx.createBufferSource(),b=flt('bandpass',f,q||2),e=ctx.createGain();s.buffer=noise('white');d=d||.04;
@@ -193,30 +209,30 @@ e.gain.setValueAtTime(g,t);e.gain.exponentialRampToValueAtTime(.0001,t+d);s.conn
 function chirp(l,f0,f1,t,d,g,pan,wet){const x=ctx.createOscillator(),e=ctx.createGain();x.frequency.setValueAtTime(f0,t);x.frequency.exponentialRampToValueAtTime(f1,t+d*.8);
 e.gain.setValueAtTime(.0001,t);e.gain.linearRampToValueAtTime(g,t+Math.min(.015,d/3));e.gain.exponentialRampToValueAtTime(.0001,t+d);x.connect(e);route(l,e,pan,wet);x.start(t);x.stop(t+d+.05)}
 function drone(l,f,g){const x=ctx.createOscillator(),a=ctx.createGain();x.frequency.value=f;a.gain.value=g;x.connect(a);a.connect(l.out);lfo(l,rnd(.04,.09),g*.5,a.gain);x.start();l.nodes.push(x)}
-function padLoop(l,CH,g,len,wave){let k=0;every(l,len,len,()=>{const t=ctx.currentTime+.05;CH[k%CH.length].forEach(m=>[-1,1].forEach(s=>tone(l,mf(m),t,0,{w:wave||'sawtooth',a:len*.42,h:len*.32,r:len*.22,g:g,det:s*rnd(5,11),f:620,s:1})));k++},0)}
-function kick(l,t){const x=ctx.createOscillator(),g=ctx.createGain();x.frequency.setValueAtTime(120,t);x.frequency.exponentialRampToValueAtTime(42,t+.12);g.gain.setValueAtTime(.2,t);g.gain.exponentialRampToValueAtTime(.0001,t+.3);x.connect(g);g.connect(l.out);x.start(t);x.stop(t+.35)}
-function hat(l,t,v){const s=ctx.createBufferSource(),h=flt('highpass',7000),g=ctx.createGain();s.buffer=noise('white');g.gain.setValueAtTime(.05*v,t);g.gain.exponentialRampToValueAtTime(.0001,t+.05);s.connect(h);h.connect(g);g.connect(l.out);s.start(t,rnd(0,5),.08)}
+function padLoop(l,CH,g,len,wave){let k=0;every(l,len,len,()=>{const t=ctx.currentTime+.05;CH[k%CH.length].forEach(m=>[-1,1].forEach(s=>tone(l,mf(m),t,0,{w:wave||'triangle',a:len*.42,h:len*.32,r:len*.22,g:g,det:s*rnd(5,11),f:520,s:1})));k++},0)}
+function kick(l,t){const x=ctx.createOscillator(),g=ctx.createGain();x.frequency.setValueAtTime(120,t);x.frequency.exponentialRampToValueAtTime(42,t+.12);g.gain.setValueAtTime(.12,t);g.gain.exponentialRampToValueAtTime(.0001,t+.3);x.connect(g);g.connect(l.out);x.start(t);x.stop(t+.35)}
+function hat(l,t,v){const s=ctx.createBufferSource(),h=flt('highpass',4500),g=ctx.createGain();s.buffer=noise('white');g.gain.setValueAtTime(.028*v,t);g.gain.exponentialRampToValueAtTime(.0001,t+.05);s.connect(h);h.connect(g);g.connect(l.out);s.start(t,rnd(0,5),.08)}
 function thunder(l){const t=ctx.currentTime,s=ctx.createBufferSource(),f=flt('lowpass',rnd(120,260)),g=ctx.createGain();s.buffer=noise('brown');
 g.gain.setValueAtTime(.0001,t);g.gain.linearRampToValueAtTime(.7,t+1.3);g.gain.setTargetAtTime(0,t+1.5,2.3);s.loop=true;s.connect(f);f.connect(g);g.connect(l.out);s.start(t,rnd(0,4));s.stop(t+16)}
 const A={
-rain(l){const n=nsrc(l,'pink'),h=flt('highpass',420,.5),lp=flt('lowpass',7500,.5);n.connect(h);h.connect(lp);lp.connect(gn(.55,l.out));
-const w=nsrc(l,'white'),bp=flt('bandpass',3800,.6);w.connect(bp);bp.connect(gn(.1,l.out));every(l,.05,.22,()=>tick(l,rnd(1800,5200),.04,.035),0)},
+rain(l){const n=nsrc(l,'pink'),h=flt('highpass',420,.5),lp=flt('lowpass',5000,.5);n.connect(h);h.connect(lp);lp.connect(gn(.55,l.out));
+const w=nsrc(l,'white'),bp=flt('bandpass',3000,.6);w.connect(bp);bp.connect(gn(.055,l.out));every(l,.05,.22,()=>tick(l,rnd(1500,4200),.024,.035),0)},
 brown(l){const n=nsrc(l,'brown'),f=flt('lowpass',900,.4);n.connect(f);f.connect(gn(.55,l.out))},
 pink(l){const n=nsrc(l,'pink'),f=flt('lowpass',9000,.3);n.connect(f);f.connect(gn(.4,l.out))},
 wind(l){const n=nsrc(l,'pink'),b=flt('bandpass',500,1.1),g=gn(.5,l.out);n.connect(b);b.connect(g);lfo(l,.07,260,b.frequency);lfo(l,.045,.22,g.gain)},
 stream(l){const n=nsrc(l,'pink'),b=flt('bandpass',1500,.7),g=gn(.5,l.out);n.connect(b);b.connect(g);lfo(l,.6,.12,g.gain);lfo(l,1.3,300,b.frequency);
 const w=nsrc(l,'white'),h=flt('highpass',3500,.5);w.connect(h);h.connect(gn(.05,l.out));
-every(l,.15,.7,()=>{const f=rnd(500,1400);chirp(l,f,f*1.8,ctx.currentTime,.09,.05,rnd(-.6,.6))},0)},
+every(l,.15,.7,()=>{const f=rnd(500,1400);chirp(l,f,f*1.8,ctx.currentTime,.09,.028,rnd(-.6,.6))},0)},
 fire(l){const n=nsrc(l,'brown'),f=flt('lowpass',380,.5);n.connect(f);f.connect(gn(.6,l.out));
 const h=nsrc(l,'pink'),b=flt('bandpass',900,.5),g=gn(.08,l.out);h.connect(b);b.connect(g);lfo(l,.9,.04,g.gain);
-every(l,.03,.35,()=>{const big=Math.random()<.12;tick(l,rnd(1500,4500),big?.5:rnd(.08,.25),big?.05:rnd(.012,.03),1)},0)},
+every(l,.03,.35,()=>{const big=Math.random()<.12;tick(l,rnd(1500,4500),big?.28:rnd(.05,.15),big?.05:rnd(.012,.03),1)},0)},
 waves(l){const n=nsrc(l,'brown'),f=flt('lowpass',700,.4),g=gn(.35,l.out);n.connect(f);f.connect(g);lfo(l,.11,.28,g.gain);lfo(l,.11,500,f.frequency);
 const w=nsrc(l,'pink'),hp=flt('highpass',1800,.5),g2=gn(.15,l.out);w.connect(hp);hp.connect(g2);lfo(l,.11,.14,g2.gain)},
 night(l){const n=nsrc(l,'pink'),b=flt('lowpass',500),g=gn(.05,l.out);n.connect(b);b.connect(g);
-for(let i=0;i<3;i++){const f=rnd(3900,5200),pan=rnd(-.8,.8);every(l,.6,1.6,()=>{const t=ctx.currentTime;for(let k=0;k<3;k++)chirp(l,f,f,t+k*.055,.045,.03,pan)},rnd(0,1))}},
+for(let i=0;i<3;i++){const f=rnd(3000,4000),pan=rnd(-.8,.8);every(l,.6,1.6,()=>{const t=ctx.currentTime;for(let k=0;k<3;k++)chirp(l,f,f,t+k*.06,.05,.018,pan)},rnd(0,1))}},
 forest(l){const n=nsrc(l,'pink'),b=flt('bandpass',650,.8),g=gn(.18,l.out);n.connect(b);b.connect(g);lfo(l,.05,.08,g.gain);
-every(l,1.4,5,()=>{const t=ctx.currentTime,pan=rnd(-.9,.9),base=rnd(2200,4200),c=Math.floor(rnd(2,6)),sp=rnd(.09,.16),up=Math.random()<.5;
-for(let k=0;k<c;k++)chirp(l,base*(up?1:1.25),base*(up?1.25:1),t+k*sp,sp*.8,.05,pan,1)},1)},
+every(l,1.4,5,()=>{const t=ctx.currentTime,pan=rnd(-.9,.9),base=rnd(1800,3200),c=Math.floor(rnd(2,6)),sp=rnd(.09,.16),up=Math.random()<.5;
+for(let k=0;k<c;k++)chirp(l,base*(up?1:1.25),base*(up?1.25:1),t+k*sp,sp*.8,.03,pan,1)},1)},
 storm(l){A.rain(l);every(l,12,30,()=>thunder(l),6)},
 waterfall(l){const w=nsrc(l,'white'),b=flt('bandpass',1700,.35),g=gn(.5,l.out);w.connect(b);b.connect(g);const p=nsrc(l,'pink'),lp=flt('lowpass',2600,.5);p.connect(lp);lp.connect(gn(.55,l.out));
 nsrc(l,'brown').connect(gn(.35,l.out));lfo(l,.2,.08,g.gain)},
@@ -233,7 +249,7 @@ if(Math.random()<.28)tone(l,mf(N[Math.max(0,i-2)]),t+.02,3.2,{g:v*.7,a:.012,r:.7
 pad(l){padLoop(l,[[48,55,59,64,67],[45,52,57,60,64],[41,48,53,57,60],[43,50,55,59,62]],.018,8)},
 box(l){const N=pent(72,96);let i=3;every(l,.38,.52,()=>{if(Math.random()<.22)return;i=clp(i+pick([-2,-1,-1,1,1,2]),0,N.length-1);const t=ctx.currentTime+.03,f=mf(N[i]);
 tone(l,f,t,1.8,{g:.07,a:.004,r:.35,s:1});tone(l,f*3,t,.6,{g:.012,a:.003,r:.1})},0)},
-lofi(l){const sp=60/74/2,CH=[[50,53,57,60,64],[43,47,50,53,57],[48,52,55,59,62],[45,48,52,55,59]];let nt=ctx.currentTime+.1,st=0;
+lofi(l){const sp=60/68/2,CH=[[50,53,57,60,64],[43,47,50,53,57],[48,52,55,59,62],[45,48,52,55,59]];let nt=ctx.currentTime+.1,st=0;
 every(l,.2,.2,()=>{while(nt<ctx.currentTime+1.2){const bar=Math.floor(st/8)%4,b=st%8,t=nt+((b%2)?sp*.12:0);
 if(b==0){CH[bar].forEach((m,i)=>tone(l,mf(m+12),t+i*.012,2.4,{w:'triangle',g:.045,a:.008,r:.35,f:1800,s:1}));tone(l,mf(CH[bar][0]-12),t,2.2,{g:.16,a:.01,r:.4})}
 if(b==4&&Math.random()<.7)CH[bar].slice(1,4).forEach((m,i)=>tone(l,mf(m+12),t+i*.015,1.2,{w:'triangle',g:.03,a:.008,r:.25,f:1800,s:1}));
@@ -258,14 +274,26 @@ every(l,5,10,()=>{const t=ctx.currentTime;tone(l,mf(pick([76,81,83,88,93])),t+.0
 dawn(l){padLoop(l,[[48,55,60,64,67],[41,48,53,57,60],[43,50,55,59,62],[45,52,57,60,64]],.014,10);const N=pent(60,88);let i=5;
 every(l,.9,2.4,()=>{i=clp(i+Math.round(rnd(-3,3)),0,N.length-1);tone(l,mf(N[i]),ctx.currentTime+.03,2.4,{w:'triangle',g:.07,a:.006,r:.55,f:3000,s:1})},0)},
 eternal(l){M.cosmos(l);M.bowls(l);M.zen(l)}};
-const UIS={tap:[[1100,0,.035,.03]],ok:[[660,0,.1,.07],[880,.07,.14,.07]],done:[[523,0,.12,.07],[659,.08,.12,.07],[784,.16,.22,.07]],
-ach:[[784,0,.14,.08,'triangle'],[988,.1,.14,.08,'triangle'],[1175,.2,.14,.08,'triangle'],[1568,.3,.45,.08,'triangle']],
-level:[[523,0,.2,.08,'triangle'],[659,.14,.2,.08,'triangle'],[784,.28,.2,.08,'triangle'],[1047,.42,.6,.08,'triangle'],[1319,.42,.6,.05,'triangle']],
-start:[[440,0,.12,.07],[587,.1,.22,.07]],pause:[[587,0,.1,.06],[440,.08,.18,.06]],
-finish:[[784,0,.35,.08],[659,.28,.35,.08],[523,.56,.8,.08],[1047,.56,.8,.03]],
-warn:[[330,0,.13,.07,'triangle'],[262,.1,.22,.07,'triangle']],bad:[[240,0,.22,.07,'triangle']],notif:[[988,0,.1,.06],[1319,.12,.25,.06]],del:[[300,0,.08,.05,'triangle']]};
-function ui(n){if(!unlocked||!S||!S.set||S.set.ui===0||(n=='notif'&&S.set.nsnd===0)||!init())return;resume();const p=UIS[n];if(!p)return;const t=ctx.currentTime+.01;
-p.forEach(([f,d,du,g,w])=>{const x=ctx.createOscillator(),e=ctx.createGain();x.type=w||'sine';x.frequency.value=f;e.gain.setValueAtTime(.0001,t+d);e.gain.linearRampToValueAtTime(g||.07,t+d+.006);e.gain.exponentialRampToValueAtTime(.0001,t+d+du);x.connect(e);e.connect(mU);x.start(t+d);x.stop(t+d+du+.05)})}
+let uRev=null;const UIM=m=>440*Math.pow(2,(m-69)/12),PN=[72,74,76,79,81,84];
+function uBus(){if(uRev)return uRev;uRev=ctx.createConvolver();const len=Math.floor(ctx.sampleRate*1.9),bf=ctx.createBuffer(2,len,ctx.sampleRate);for(let c=0;c<2;c++){const d=bf.getChannelData(c);let p=0;for(let i=0;i<len;i++){p=p*.5+(Math.random()*2-1)*.5;d[i]=p*Math.pow(1-i/len,3)}}uRev.buffer=bf;const g=ctx.createGain();g.gain.value=.45;uRev.connect(g);g.connect(mU);return uRev}
+function uo(t,f,g,d,o){o=o||{};const x=ctx.createOscillator(),e=ctx.createGain(),lp=flt('lowpass',o.lp||4200,.4);x.type=o.w||'sine';x.frequency.setValueAtTime(f,t);if(o.to)x.frequency.exponentialRampToValueAtTime(o.to,t+d*.7);
+e.gain.setValueAtTime(.0001,t);e.gain.linearRampToValueAtTime(g,t+(o.a||.005));e.gain.exponentialRampToValueAtTime(.0001,t+d);x.connect(e);e.connect(lp);lp.connect(mU);if(!o.dry)lp.connect(uBus());x.start(t);x.stop(t+d+.05)}
+const mar=(t,m,g,d,dry)=>{const f=UIM(m);uo(t,f,g,d,{a:.004,dry});uo(t,f*4,g*.16,d*.3,{a:.002,dry});uo(t,f*10,g*.04,d*.12,{a:.002,dry})},
+bell=(t,m,g,d)=>{const f=UIM(m);uo(t,f,g,d,{a:.006,lp:6000});uo(t,f*2.76,g*.28,d*.6,{lp:6000});uo(t,f*5.4,g*.1,d*.35,{lp:6000})},
+drop=(t,f0,f1,g,d)=>uo(t,f0,g,d,{to:f1,a:.008,lp:3000,dry:1});
+const UI={tap:t=>mar(t,74,.04,.14,1),tapN:(t,i)=>mar(t,PN[(i||0)%6],.05,.2),tapP:t=>{mar(t,79,.06,.22);mar(t+.07,84,.05,.32)},tapG:t=>mar(t,76,.045,.18),tapS:t=>drop(t,520,820,.06,.11),
+drop:t=>{drop(t,700,1250,.07,.16);drop(t+.09,520,900,.04,.14)},
+ok:t=>{mar(t,76,.06,.2);mar(t+.09,81,.06,.34)},
+done:t=>{mar(t,72,.06,.2);mar(t+.08,76,.06,.2);mar(t+.16,79,.06,.2);bell(t+.24,84,.05,.9)},
+ach:t=>{[76,81,84].forEach((m,i)=>mar(t+i*.1,m,.07,.3));bell(t+.32,88,.07,1.6);bell(t+.34,95,.025,1.2)},
+daily:t=>{bell(t,79,.07,1.1);bell(t+.14,86,.06,1.5);mar(t+.14,74,.05,.4)},
+shield:t=>{bell(t,67,.08,1.4);bell(t+.16,74,.06,1.4);bell(t+.32,79,.06,1.8)},
+level:t=>{[60,64,67].forEach(m=>uo(t,UIM(m),.05,2.6,{w:'triangle',a:.5,lp:1400}));[72,76,79,84,88,91].forEach((m,i)=>mar(t+.1+i*.12,m,.07,.5));[84,88,91].forEach(m=>bell(t+.88,m,.055,2.6));for(let i=0;i<6;i++)bell(t+1+i*.17,pick([96,98,100,103]),.02,.9)},
+legend:t=>{UI.level(t);[91,96,100].forEach((m,i)=>bell(t+1.8+i*.22,m,.05,3.2))},
+start:t=>{mar(t,72,.05,.2);mar(t+.1,79,.05,.4)},pause:t=>{mar(t,79,.045,.2);mar(t+.1,72,.045,.35)},
+finish:t=>{bell(t,84,.06,1.6);bell(t+.3,79,.06,1.8);bell(t+.62,72,.07,2.4)},
+warn:t=>{mar(t,64,.05,.25);mar(t+.12,60,.05,.35)},bad:t=>mar(t,55,.06,.4),notif:t=>{bell(t,86,.05,1.2);bell(t+.14,91,.045,1.5)},del:t=>drop(t,520,300,.05,.2)};
+function ui(n,i){if(!unlocked||!S||!S.set||S.set.ui===0||(n=='notif'&&S.set.nsnd===0)||!init())return;resume();const f=UI[n];if(!f)return;try{f(ctx.currentTime+.01,i)}catch(e){}}
 function start(id){if(!init())return false;resume();if(LY[id])return true;const d=SND.find(s=>s[0]==id);if(!d)return false;const kind=d[3],fn=(kind=='m'?M:A)[id];if(!fn)return false;
 const l={id,dead:false,nodes:[],cl:[],out:ctx.createGain(),send:ctx.createGain()};l.out.gain.value=0;l.out.connect(kind=='m'?mM:mA);l.send.gain.value=kind=='m'?.65:.5;l.send.connect(kind=='m'?revM:revA);
 try{fn(l)}catch(e){stopLayer(l);return false}l.out.gain.setTargetAtTime(1,ctx.currentTime,.8);LY[id]=l;return true}
@@ -274,10 +302,10 @@ setTimeout(()=>{l.nodes.forEach(n=>{try{n.stop()}catch(e){}});try{l.out.disconne
 function stop(id){const l=LY[id];if(!l)return;delete LY[id];stopLayer(l)}
 addEventListener('pointerdown',()=>{unlocked=true;resume()},true);addEventListener('keydown',()=>{unlocked=true},true);
 document.addEventListener('visibilitychange',()=>{if(!document.hidden)resume()});
-return{ui,start,stop,vol:applyVol,on:id=>!!LY[id],ids:()=>Object.keys(LY),stopAll:()=>Object.keys(LY).forEach(stop),_test:{A,M,UIS}}})();
+return{ui,start,stop,vol:applyVol,on:id=>!!LY[id],ids:()=>Object.keys(LY),stopAll:()=>Object.keys(LY).forEach(stop),_test:{A,M,UI}}})();
 
 function buzz(pattern){try{if(S&&S.set&&S.set.vib===0)return;if(navigator.vibrate&&matchMedia('(prefers-reduced-motion:no-preference)').matches)navigator.vibrate(pattern)}catch(_){}}
-function toast(t,x,kind='Conquista desbloqueada!'){document.querySelectorAll('.toast').forEach(e=>e.remove());{const k=kind=='Conquista desbloqueada!'?'ach':(kind=='Aviso'||/^Não consegui/.test(kind))?'warn':kind=='Nova notificação'?'notif':kind=='Boa!'?'done':['Tudo certo','Agendado','Sincronizado','Muito bem!'].includes(kind)?'ok':'';if(k)Snd.ui(k)}const e=document.createElement('div');e.className='toast';e.setAttribute('role','status');e.innerHTML=I(kind=='Conquista desbloqueada!'?'trophy':'bell',22)+'<div><b>'+esc(kind)+'</b><small>'+esc(t)+(x?(' · +'+x+' XP'):'')+'</small></div>';document.body.appendChild(e);if(x)buzz([35,55,70]);setTimeout(()=>e.classList.add('out'),3400);setTimeout(()=>e.remove(),3900)}
+function toast(t,x,kind='Conquista desbloqueada!'){document.querySelectorAll('.toast').forEach(e=>e.remove());{const k=kind=='Conquista desbloqueada!'?'ach':(kind=='Aviso'||/^Não consegui/.test(kind))?'warn':kind=='Nova notificação'?'notif':kind=='Boa!'?'done':kind=='Bônus diário'?'daily':kind=='Escudo de sequência'?'shield':['Tudo certo','Agendado','Sincronizado','Muito bem!'].includes(kind)?'ok':'';if(k)Snd.ui(k)}const e=document.createElement('div');e.className='toast';e.setAttribute('role','status');e.innerHTML=I(kind=='Conquista desbloqueada!'?'trophy':kind=='Bônus diário'?'flame':kind=='Escudo de sequência'?'star':'bell',22)+'<div><b>'+esc(kind)+'</b><small>'+esc(t)+(x?(' · +'+x+' XP'):'')+'</small></div>';document.body.appendChild(e);if(x)buzz([35,55,70]);setTimeout(()=>e.classList.add('out'),3400);setTimeout(()=>e.remove(),3900)}
 window.alert=message=>toast(String(message),'','Aviso');
 
 // ---------- ícones ----------
@@ -302,8 +330,12 @@ REW={colors:[[3,'Coral','#FF6B6B'],[5,'Menta','#2DD4BF'],[7,'Lavanda','#B197FC']
 bgs:[[4,'aurora','Aurora',170],[8,'sunset','Pôr do sol',18],[12,'galaxy','Galáxia',265],[18,'ocean','Oceano',205],[24,'forest','Floresta',140],[30,'volcano','Vulcão',5],[38,'nebula','Nebulosa',300],[50,'eternal','Eternidade',45]],
 frames:[[3,'ring','Anel'],[5,'dual','Anel duplo'],[7,'fire','Chama'],[10,'gold','Dourada'],[14,'rainbow','Arco-íris'],[20,'neon','Neon'],[28,'galaxy','Galáxia'],[36,'diamond','Diamante'],[50,'crown','Coroa']],
 titles:[[1,'Estudante'],[2,'Curioso'],[4,'Dedicado'],[6,'Focado'],[8,'Mestre dos estudos'],[11,'Lenda do foco'],[15,'Gênio'],[20,'Mentor'],[25,'Veterano'],[30,'Sábio'],[35,'Visionário'],[40,'Mestre supremo'],[45,'Imortal'],[50,'Lenda suprema']],
-extras:[[50,'Selo de Lenda no perfil'],[50,'Nome dourado'],[50,'Confete dourado']]};
-const MAXLV=50,isLegend=()=>lvl()>=MAXLV,xpIn=()=>lvl()>=MAXLV?500:xp()%500;
+extras:[[50,'Ícones do app: cores, dourado e coroas'],[50,'Selo de Lenda no perfil'],[50,'Nome dourado'],[50,'Confete dourado']]};
+const APPICONS=[['','Padrão'],['azul','Azul'],['verde','Verde'],['rosa','Rosa'],['laranja','Laranja'],['grafite','Grafite'],['dourado','Dourado'],['realeza','Dourado com coroas']],icoSrc=(k,z)=>k?'ic-'+k+'-'+(z||192)+'.png':'icon-'+(z||192)+'.png';
+function applyIcon(){try{const k=isLegend()?(SET().icon||''):'';document.querySelectorAll('link[rel="icon"]').forEach(l=>l.href=k?icoSrc(k)+'?v=2':'favicon-32.png?v=2');document.querySelectorAll('link[rel="apple-touch-icon"]').forEach(l=>l.href=k?icoSrc(k)+'?v=2':'apple-touch-icon.png?v=2')}catch(e){}}
+function setIconK(k){if(!isLegend())return lockToast(MAXLV);setSet({icon:k});applyIcon();render(1);modal('Ícone trocado!',`<div class="c"><img src="${icoSrc(k,192)}" alt="" style="width:96px;height:96px;border-radius:22px;margin:4px auto 12px;display:block"></div><p class="hint">Aqui no app e na aba do navegador o ícone já mudou.</p><p class="hint"><b>Para mudar na tela inicial do celular:</b> apague o atalho do StudyFlow e adicione de novo (iPhone: Safari › Compartilhar › Adicionar à Tela de Início; Android: menu do Chrome › Instalar app). O celular só lê o ícone na hora de adicionar.</p>`,`<button class="g" onclick="dlIcon('${k}')">Baixar imagem</button><button class="p" onclick="closeModal()">Ok</button>`)}
+function dlIcon(k){const a=document.createElement('a');a.href=icoSrc(k,512);a.download='studyflow-icone.png';document.body.appendChild(a);a.click();a.remove()}
+const MAXLV=50,isLegend=()=>lvl()>=MAXLV,xpNeed=()=>lvl()>=MAXLV?LVC(49):LVC(lvl()),xpIn=()=>lvl()>=MAXLV?LVC(49):xp()-LVT[lvl()-1];
 const rewardsAt=l=>[...REW.colors.filter(r=>r[0]==l).map(r=>'Cor '+r[1]),...REW.bgs.filter(r=>r[0]==l).map(r=>'Fundo '+r[2]),...REW.frames.filter(r=>r[0]==l).map(r=>'Moldura '+r[2]),...REW.titles.filter(r=>r[0]==l).map(r=>'Título "'+r[1]+'"'),...REW.extras.filter(r=>r[0]==l).map(r=>r[1]),...SND.filter(r=>r[2]==l).map(r=>'Som "'+r[1]+'"')],
 nextRew=l=>{for(let i=l+1;i<=MAXLV;i++)if(rewardsAt(i).length)return i;return 0},
 lockedColor=c=>{const r=REW.colors.find(x=>x[2].toLowerCase()==String(c).toLowerCase());return r&&lvl()<r[0]?r[0]:0},
@@ -326,7 +358,7 @@ puro:d?['--bg','#000000','--card','#0D0D0F','--line','#222226','--soft','#17171A
 }[bg]||(pb?tint(pb[3]):null);
 if(B)for(let i=0;i<B.length;i+=2)o[B[i]]=B[i+1];return o}
 const VK=['--bg','--card','--line','--tx','--mu','--soft','--acc','--onacc','--ha','--hb','--hc'];
-const paintTheme=()=>{const r=document.documentElement,p=PE(),t=TH(),o=pal(t,p.bg,p.acc),s=SET();r.dataset.theme=t;
+const paintTheme=()=>{applyIcon();const r=document.documentElement,p=PE(),t=TH(),o=pal(t,p.bg,p.acc),s=SET();r.dataset.theme=t;
 r.dataset.anim=s.anim||(matchMedia('(prefers-reduced-motion:reduce)').matches?'soft':'normal');r.dataset.round=s.round||'round';r.dataset.font=s.font||'m';r.dataset.glass=s.glass===0?'off':'on';r.dataset.bg=p.bg;{const pb=REW.bgs.find(x=>x[1]==p.bg);if(pb){r.dataset.pbg='1';r.style.setProperty('--h1',pb[3]);r.style.setProperty('--h2',(pb[3]+60)%360)}else delete r.dataset.pbg;r.dataset.legend=(()=>{try{return isLegend()?'1':'0'}catch(e){return'0'}})()}
 VK.forEach(k=>o[k]?r.style.setProperty(k,o[k]):r.style.removeProperty(k));const m=document.querySelector('meta[name=theme-color]');if(m)m.content=o['--bg']||(t=='dark'?'#0A1220':'#F1F6FD')};paintTheme();
 try{matchMedia('(prefers-color-scheme: dark)').addEventListener('change',()=>{if(SET().mode=='auto'){paintTheme();render(1)}})}catch(e){}
@@ -460,7 +492,7 @@ ${packList()}<div class="tabs">${[['pend','Pendentes',pend.length],['conc','Conc
 ${rtab=='pend'?(blk('Atrasadas',late)+blk('Hoje',hoje)+blk('Próximas',prox)||'<div class="card empty">Nenhuma revisão pendente.</div>'):(dn.length?`<div class="card list">${dn.map(row).join('')}</div>`:'<div class="card empty">Nenhuma revisão concluída ainda.</div>')}
 <p class="hint c">Você já revisou ${rdone()} ${rdone()==1?'assunto':'assuntos'}.</p>`},
 more(){if(sub=='nset')return ntSettings();if(sub=='snd')return sndView();if(sub=='rev')return P.rev();if(sub=='pers')return P.pers();if(sub=='acct')return acctView();if(sub=='tutor')return tutorView();if(sub=='prog')return progView();return moreMenu()},
-profile(){const L=lvl();return`${topbar('Perfil',"go('home')")}<div class="card c" style="padding:26px 16px"><span class="circ av ${frameCls()}" style="width:84px;height:84px;font-size:38px;margin:0 auto 14px">${avatar(1)}</span><div class="row" style="justify-content:center;gap:8px;margin-bottom:14px"><button class="g mini-g" onclick="pickPhoto()">${I('camera',16)} ${S.user.photo?'Trocar foto':'Adicionar foto'}</button>${S.user.photo?`<button class="g mini-g" onclick="rmPhoto()">Remover</button>`:''}</div><div class="f"><label for="nm" class="mu">Seu nome</label><input id="nm" value="${esc(name())}" style="text-align:center" onchange="S.user.name=this.value.trim()||'Dudu';save()"></div><div class="ttl ${isLegend()?'gold':''}">${isLegend()?I('crown',16)+' ':''}${esc(curTitle())}</div><div style="margin-top:14px"><b>Nível ${L}</b> <small>${lvl()>=MAXLV?'Nível máximo':xpIn()+'/500 XP'}</small></div><div class="bar"><i style="width:${xpIn()/5}%"></i></div></div>${mrow('trophy','Progresso e recompensas','Nível, molduras, títulos e medalhas',"go('more','prog')")}${mrow('bell','Notificações',unread()?unread()+' novas':'Notas, revisões e avisos',"go('notifs')")}${mrow('cloud','Conta e nuvem',TK()?'Sincronização ativa':'Entre para salvar na nuvem',"go('more','acct')")}${mrow('palette','Personalização','Cores, animações e aparência',"go('more','pers')")}${themeRow()}${TK()?`<button class="g danger" onclick="logout()">Sair da conta</button>`:''}`}};
+profile(){const L=lvl();return`${topbar('Perfil',"go('home')")}<div class="card c" style="padding:26px 16px"><span class="circ av ${frameCls()}" style="width:84px;height:84px;font-size:38px;margin:0 auto 14px">${avatar(1)}</span><div class="row" style="justify-content:center;gap:8px;margin-bottom:14px"><button class="g mini-g" onclick="pickPhoto()">${I('camera',16)} ${S.user.photo?'Trocar foto':'Adicionar foto'}</button>${S.user.photo?`<button class="g mini-g" onclick="rmPhoto()">Remover</button>`:''}</div><div class="f"><label for="nm" class="mu">Seu nome</label><input id="nm" value="${esc(name())}" style="text-align:center" onchange="S.user.name=this.value.trim()||'Dudu';save()"></div><div class="ttl ${isLegend()?'gold':''}">${isLegend()?I('crown',16)+' ':''}${esc(curTitle())}</div><div style="margin-top:14px"><b>Nível ${L}</b> <small>${lvl()>=MAXLV?'Nível máximo':xpIn()+'/'+xpNeed()+' XP'}</small></div><div class="bar"><i style="width:${xpIn()/xpNeed()*100}%"></i></div></div>${mrow('trophy','Progresso e recompensas','Nível, molduras, títulos e medalhas',"go('more','prog')")}${mrow('bell','Notificações',unread()?unread()+' novas':'Notas, revisões e avisos',"go('notifs')")}${mrow('cloud','Conta e nuvem',TK()?'Sincronização ativa':'Entre para salvar na nuvem',"go('more','acct')")}${mrow('palette','Personalização','Cores, animações e aparência',"go('more','pers')")}${themeRow()}${TK()?`<button class="g danger" onclick="logout()">Sair da conta</button>`:''}`}};
 const tgRow=(i,l,d,on,fn)=>`<div class="card menu" onclick="${fn}" role="switch" aria-checked="${on}" tabindex="0">${sq(I(i,22))}<div class="grow"><b>${l}</b><br><small>${d}</small></div><span class="tg" aria-hidden="true" data-on="${on}"></span></div>`,
 seg=(key,list,cur)=>`<div class="tabs">${list.map(([k,l])=>`<button class="${cur==k?'on':''}" onclick="setSet({${key}:'${k}'});render(1)">${l}</button>`).join('')}</div>`;
 // ---------- sons: telas e controles ----------
@@ -486,7 +518,7 @@ sndView=()=>`${topbar('Sons e música',"go('more')")}<p class="hint">Músicas ca
 sndRow=()=>`<div class="card menu" onclick="sndModal()" role="button" tabindex="0">${sq(I('music',22))}<div class="grow"><b>Sons para estudar</b><br><small id="sndnow2">${esc(sndNow())}</small></div>${I('chev',18)}</div>`;
 
 const acctView=()=>`${topbar('Conta e nuvem',"go('more')")}${TK()?`<div class="card c"><div style="display:flex;justify-content:center;margin-bottom:10px">${sq(I('cloud',24))}</div><b>Sincronização ativa</b><br><small>${esc(localStorage['studyflow.email']||'')}</small><br><small>${lastSync?'Última sincronização às '+new Date(lastSync).toLocaleTimeString('pt-BR',{hour:'2-digit',minute:'2-digit'}):'Sincronizando…'}</small><p class="hint" style="margin:10px 0 0">Tarefas, notas, provas, revisões, personalização e o timer ficam iguais em todos os seus aparelhos.</p><button class="p" onclick="sync(1).then(()=>toast('Tudo atualizado','','Sincronizado'))">${I('repeat',18)} Sincronizar agora</button><button class="g" onclick="logout()">Sair da conta</button></div>`:`<form class="card f" onsubmit="event.preventDefault();authDo('login')"><label for="ae">E-mail</label><input id="ae" type="email" autocomplete="email" required><label for="ap">Senha (mínimo 6 caracteres)</label><div class="pw"><input id="ap" type="password" autocomplete="current-password" required><button type="button" class="eye" aria-label="Mostrar senha" onclick="togglePw('ap',this)">${I('eye',19)}</button></div><div id="am" class="hint" style="margin:0" role="status"></div><button class="p">${I('user',18)} Entrar</button><button type="button" class="g" style="margin:0" onclick="authDo('register')">Criar conta</button><button type="button" class="google" onclick="googleLogin()">${GLOGO} Continuar com Google</button><small class="c">Ao entrar, seus dados são unidos aos da nuvem.</small></form>`}`,
-progView=()=>{const L=lvl();return`${topbar('Progresso',"go('more')")}<div class="card"><div class="row">${sq(I('trophy',24))}<div class="grow"><div class="big">Nível ${L} <small class="ttl2">${esc(curTitle())}</small></div><div class="bar" style="margin-top:6px"><i style="width:${xpIn()/5}%"></i></div><small>${lvl()>=MAXLV?'Nível máximo! Você liberou tudo.':xpIn()+' / 500 XP'}${nextRew(L)&&lvl()<MAXLV?' · próxima recompensa no nível '+nextRew(L):''}</small></div></div></div>
+progView=()=>{const L=lvl();return`${topbar('Progresso',"go('more')")}<div class="card"><div class="row">${sq(I('trophy',24))}<div class="grow"><div class="big">Nível ${L} <small class="ttl2">${esc(curTitle())}</small></div><div class="bar" style="margin-top:6px"><i style="width:${xpIn()/xpNeed()*100}%"></i></div><small>${lvl()>=MAXLV?'Nível máximo! Você liberou tudo.':xpIn()+' / '+xpNeed()+' XP'}${nextRew(L)&&lvl()<MAXLV?' · próxima recompensa no nível '+nextRew(L):''}</small></div></div></div><div class="card" style="margin-top:12px"><div class="row">${sq(I('flame',22))}<div class="grow"><b>Sequência: ${streak()} dia(s)</b><br><small>Bata a meta do dia e ganhe +${25+Math.min(Math.max(streak(),1),30)*5} XP de bônus (cresce com a sequência). Escudos: ${S.shield||0}/3. Você ganha 1 a cada 7 dias seguidos e ele salva a sequência se você faltar 1 dia.</small></div></div></div>
 <div class="grid"><div class="card"><div class="big">${streak()}</div><small>dias seguidos</small></div><div class="card"><div class="big">${Math.max(longest(),streak())}</div><small>melhor sequência</small></div><div class="card"><div class="big">${hm(dur(()=>1))}</div><small>total estudado</small></div><div class="card"><div class="big">${S.sessions.length}</div><small>sessões</small></div></div>
 ${rewardsUI()}${achHead()}<div class="grid">${achList().map(a=>{const ok=a.ok;return`<div class="card ach ${ok?'':'off'}">${sq(I(a.i,22))}<b>${a.n}</b><small>${a.d}</small><div class="bar"><i style="width:${Math.min(100,a.v/a.t*100)}%"></i></div><small>${Math.min(Math.round(a.v),a.t)}/${a.t}${ok?', concluída':''}</small><span class="xpb ${ok?'got':''}">+${a.x} XP</span></div>`}).join('')}</div>`},
 moreMenu=()=>{const nr=dueRev(),nu=unread();return`${appbar()}<div class="head"><h1>Mais</h1></div>${mrow('repeat','Revisões',nr?nr+(nr==1?' conteúdo para rever hoje':' conteúdos para rever hoje'):'Conteúdos para rever',"openRev('more')")}${mrow('trophy','Progresso e recompensas','Nível, recompensas e medalhas',"go('more','prog')")}${mrow('bot','Tutor com IA','Controla o app e tira dúvidas',"go('more','tutor')")}${mrow('bell','Notificações',nu?nu+(nu==1?' nova':' novas'):'Notas, revisões e avisos',"go('notifs')")}${mrow('sliders','Ajustes de avisos','O que avisar, horários e push no celular',"go('more','nset')")}${mrow('music','Sons e música','Sons relaxantes para estudar',"go('more','snd')")}${mrow('cloud','Conta e nuvem',TK()?'Sincronização ativa':'Entre para salvar na nuvem',"go('more','acct')")}${mrow('palette','Personalização','Cores, animações e aparência',"go('more','pers')")}${mrow('info','Novidades do app','Versão '+APP_VER,"go('news')")}${standalone()?'':mrow('download','Instalar app','Adicionar à tela inicial','inst()')}${themeRow()}
@@ -595,18 +627,19 @@ P.news=()=>`${topbar('Novidades do app',"go('more')")}${CHANGELOG.map(c=>`<div c
 function lvCheck(){const L=lvl();if(S.lv==null){S.lv=L;return}
 if(L>S.lv){const o=S.lv;S.lv=L;setTimeout(()=>levelUp(o,L),350);for(let i=o+1;i<=L;i++){const r=rewardsAt(i);notify('level','Nível '+i+' alcançado!',r.length?'Novidades: '+r.join(', '):'Continue assim!',{p:'more',s:'prog'},'lv_'+i)}}}
 function levelUp(o,L){if(gate())return;const rw=[];for(let i=o+1;i<=L;i++)rw.push(...rewardsAt(i));const nx=nextRew(L);
-modal(L>=MAXLV?'NÍVEL MÁXIMO!':'Subiu de nível!',`<div class="lvup ${L>=MAXLV?'legend':''}"><div class="lvn">${L}</div><p class="hint">${L>=MAXLV?'Você virou uma Lenda do StudyFlow! Veja tudo que desbloqueou.':'Você chegou ao nível '+L+'.'}</p>${rw.length?`<div class="lvr">${rw.map(r=>`<span>${I('gift',15)} ${esc(r)}</span>`).join('')}</div>`:`<p class="hint">${nx?'Próxima recompensa no nível '+nx+'.':'Você já viu tudo. Lenda!'}</p>`}</div>`,`<button class="g" onclick="closeModal();go('more','prog')">Ver recompensas</button><button class="p" onclick="closeModal()">Continuar</button>`);bigBurst();Snd.ui('level');buzz([40,60,40,60,120])}
+modal(L>=MAXLV?'NÍVEL MÁXIMO!':'Subiu de nível!',`<div class="lvup ${L>=MAXLV?'legend':''}"><div class="lvn">${L}</div><p class="hint">${L>=MAXLV?'Você virou uma Lenda do StudyFlow! Veja tudo que desbloqueou.':'Você chegou ao nível '+L+'.'}</p>${rw.length?`<div class="lvr">${rw.map(r=>`<span>${I('gift',15)} ${esc(r)}</span>`).join('')}</div>`:`<p class="hint">${nx?'Próxima recompensa no nível '+nx+'.':'Você já viu tudo. Lenda!'}</p>`}</div>`,`<button class="g" onclick="closeModal();go('more','prog')">Ver recompensas</button><button class="p" onclick="closeModal()">Continuar</button>`);bigBurst();Snd.ui(L>=MAXLV?'legend':'level');buzz([40,60,40,60,120])}
 const equip=(k,v)=>{setSet({[k]:v});render(1)},
 rewardsUI=()=>{const L=lvl(),s=SET(),p=PE(),t=TH(),
 chip=(ok,on,l,click,inner,lab,sub)=>`<button class="rw ${ok?'':'lk'} ${on?'on':''}" onclick="${ok?click:`lockToast(${l})`}">${inner}<b>${lab}</b><small>${ok?(on?'Em uso':sub):'Nível '+l}</small></button>`,
 cols=REW.colors.map(([l,n,c])=>chip(L>=l,(s.acc||'').toLowerCase()==c.toLowerCase(),l,`setAcc('${c}')`,`<span class="rsw" style="background:${c}">${L>=l?'':I('lock',16)}</span>`,n,'Usar')),
 bgs=REW.bgs.map(([l,k,n,h])=>chip(L>=l,p.bg==k,l,`setBg('${k}')`,`<span class="rsw sq2" style="background:linear-gradient(135deg,${hsl(h,60,t=='dark'?18:88)},${hsl((h+40)%360,70,t=='dark'?30:76)})">${L>=l?'':I('lock',16)}</span>`,n,'Usar')),
 frs=[[1,'','Nenhuma'],...REW.frames].map(([l,k,n])=>chip(L>=l,(s.frame||'')==k,l,`equip('frame','${k}')`,`<span class="rsw fprev ${k?'fr-'+k:''}">${S.user.photo?`<img src="${esc(S.user.photo)}" alt="" referrerpolicy="no-referrer">`:I('user',18)}</span>`,n,'Usar')),
+icos=APPICONS.map(([k,n])=>chip(L>=MAXLV,(s.icon||'')==k,MAXLV,`setIconK('${k}')`,`<span class="rsw sq2 aic"><img src="${icoSrc(k,192)}" alt=""></span>`,n,'Usar')),
 tts=REW.titles.map(([l,n])=>chip(L>=l,curTitle()==n,l,`equip('title','${n}')`,`<span class="rsw tt">${I('star',18)}</span>`,n,'Usar')),
 ext=REW.extras.map(([l,n])=>`<div class="rw ${L>=l?'on':'lk'}"><span class="rsw tt">${L>=l?I('crown',18):I('lock',16)}</span><b>${n}</b><small>${L>=l?'Liberado':'Nível '+l}</small></div>`),
 snds=SND.map(([id,n,l,k,ic])=>`<div class="rw ${L>=l?'':'lk'}" onclick="go('more','snd')"><span class="rsw tt">${L>=l?I(ic,18):I('lock',16)}</span><b>${esc(n)}</b><small>${L>=l?(k=='m'?'Música':'Ambiente'):'Nível '+l}</small></div>`),
 sec=(t,a)=>`<h2 style="margin:18px 0 8px">${t}</h2><div class="rws">${a.join('')}</div>`;
-return `<h2 style="margin:20px 0 2px">Recompensas</h2><p class="hint">Cada nível libera novidades até o nível ${MAXLV}. ${nextRew(L)?'Próxima no nível '+nextRew(L)+'.':'Você liberou tudo!'}</p>${sec('Cores',cols)}${sec('Fundos',bgs)}${sec('Molduras da foto',frs)}${sec('Títulos',tts)}${sec('Sons e músicas',snds)}${sec('Especiais do nível '+MAXLV,ext)}`};
+return `<h2 style="margin:20px 0 2px">Recompensas</h2><p class="hint">Cada nível libera novidades até o nível ${MAXLV}. ${nextRew(L)?'Próxima no nível '+nextRew(L)+'.':'Você liberou tudo!'}</p>${sec('Cores',cols)}${sec('Fundos',bgs)}${sec('Molduras da foto',frs)}${sec('Títulos',tts)}${sec('Sons e músicas',snds)}${sec('Ícone do app (nível '+MAXLV+')',icos)}${sec('Especiais do nível '+MAXLV,ext)}`};
 
 // ---------- revisão completa feita pela IA ----------
 let pkS={id:null,i:0,tab:'res',ans:{},sel:{},fb:{},draft:'',busy:0,gen:0,fail:{},last:null};
@@ -823,7 +856,7 @@ const gate=()=>!TK()&&!localStorage['sf.skip'],skipLogin=()=>{try{localStorage['
 if(S.owner||isDemo()){try{if(S.owner)localStorage['studyflow.backup']=JSON.stringify(S)}catch(e){}S=empty();fix();snapshot();persist();paintTheme()}go('home')};
 const wake=()=>{if(TK()&&base())fetch(base()+'/api/health').catch(()=>{})};
 document.addEventListener('visibilitychange',()=>{if(!document.hidden){wake();sync();checkAlerts();prepPacks()}});addEventListener('focus',()=>sync());addEventListener('online',()=>sync(1));
-setInterval(()=>{if(!document.hidden)sync()},20000);setInterval(()=>{if(!document.hidden){checkAlerts();prepPacks()}},600000);setInterval(()=>{if(!document.hidden&&page=='more'&&sub=='tutor')wake()},240000);
+setInterval(()=>{if(!document.hidden)sync()},20000);setTimeout(()=>{try{if(dailyCheck())save()}catch(e){}},3000);setInterval(()=>{try{if(!document.hidden&&dailyCheck())save()}catch(e){}},300000);setInterval(()=>{if(!document.hidden){checkAlerts();prepPacks()}},600000);setInterval(()=>{if(!document.hidden&&page=='more'&&sub=='tutor')wake()},240000);
 // abrir pelo toque numa notificação push
 const launchGo=g=>{const m=NAV[norm(g)];if(m&&!gate()){page=m[0];sub=m[1]||''}};
 try{const g=new URLSearchParams(location.search).get('go');if(g){launchGo(g);history.replaceState(null,'',location.pathname)}}catch(e){}
@@ -846,4 +879,4 @@ function burst(el){if(SET().anim=='off')return;const r=el.getBoundingClientRect(
 document.addEventListener('change',e=>{if(e.target.matches&&e.target.matches('.t input[type=checkbox]')&&e.target.checked)burst(e.target)},true);
 
 // ---------- som suave ao tocar ----------
-document.addEventListener('pointerdown',e=>{const b=e.target.closest&&e.target.closest('.p,.g,.tile,.qb,.sc,.menu,.mini,.tabs button,.chips button,.strip button,#nav a,.circ,.opt,.rw,.sw2,.bgo,.snd');if(b&&!b.disabled)Snd.ui('tap')},true);
+document.addEventListener('pointerdown',e=>{const b=e.target.closest&&e.target.closest('.p,.g,.tile,.qb,.sc,.menu,.mini,.tabs button,.chips button,.strip button,#nav a,.circ,.opt,.rw,.sw2,.bgo,.snd');if(!b||b.disabled)return;let k='tap',i=0;const ix=()=>[...b.parentNode.children].indexOf(b);if(b.closest('#nav')){k='tapN';i=ix()}else if(b.matches('.tabs button,.strip button,.chips button')){k='tapN';i=ix()+1}else if(b.matches('.p'))k='tapP';else if(b.matches('.g,.mini,.circ'))k='tapG';else if(b.matches('.snd'))k='drop';else if(b.matches('.opt,.rw,.sw2,.bgo,.sc,.tile,.qb,.menu'))k='tapS';Snd.ui(k,i)},true);
