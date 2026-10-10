@@ -35,7 +35,9 @@ if(!p||!p.email||!p.email_verified)return s.status(401).json({error:'Não foi po
 const email=p.email.toLowerCase(),name=String(p.name||'').slice(0,60),photo=await photoData(p.picture);
 let r=await pool.query('SELECT id,email FROM users WHERE email=$1',[email]);let u=r.rows[0];
 if(!u){r=await pool.query('INSERT INTO users(email,name,password_hash) VALUES($1,$2,$3) RETURNING id,email',[email,name,await bcrypt.hash(require('crypto').randomBytes(32).toString('hex'),10)]);u=r.rows[0]}
+try{await pool.query('UPDATE users SET photo=$1,name=COALESCE(name,$2) WHERE id=$3',[photo.slice(0,200000),name,u.id])}catch(e){console.error('photo',e.message)}
 s.json({token:sign(u),email:u.email,name,photo})}));
+app.get('/api/me',auth,w(async(q,s)=>{const r=await pool.query('SELECT email,name,photo FROM users WHERE id=$1',[q.user.id]);const u=r.rows[0]||{};s.json({email:u.email||'',name:u.name||'',photo:u.photo||''})}));
 app.get('/api/state',auth,w(async(q,s)=>{const since=Number(q.query.since)||0;if(since){const c=await pool.query('SELECT updated_at FROM app_state WHERE user_id=$1',[q.user.id]);if(c.rows[0]&&Number(c.rows[0].updated_at)<=since)return s.json({same:true,updatedAt:Number(c.rows[0].updated_at)})}
 const r=await pool.query('SELECT data,updated_at FROM app_state WHERE user_id=$1',[q.user.id]);s.json(r.rows[0]?{data:r.rows[0].data,updatedAt:Number(r.rows[0].updated_at)}:{data:null,updatedAt:0})}));
 app.put('/api/state',auth,w(async(q,s)=>{const{data,updatedAt}=q.body||{};if(!data||typeof data!=='object'||!Number.isFinite(updatedAt))return s.status(400).json({error:'Dados inválidos.'});
@@ -43,22 +45,32 @@ const r=await pool.query('INSERT INTO app_state(user_id,data,updated_at) VALUES(
 if(r.rowCount)return s.json({ok:true,updatedAt});const c=await pool.query('SELECT data,updated_at FROM app_state WHERE user_id=$1',[q.user.id]);s.status(409).json({error:'Há uma versão mais recente na nuvem.',data:c.rows[0].data,updatedAt:Number(c.rows[0].updated_at)})}));
 // Gemini às vezes responde 503 (sobrecarga) ou 429: tenta 2x em cada modelo e, se falhar, usa o modelo reserva.
 // Pensar demais deixa o tutor lento: pedimos "sem pensar" (thinkingBudget 0). Se o modelo não aceitar (erro 400), repete sem esse ajuste.
-const MODELS=[GEMINI_MODEL,...(process.env.GEMINI_FALLBACK||'gemini-flash-lite-latest').split(',').map(x=>x.trim())].filter((x,i,a)=>x&&a.indexOf(x)===i);
+const MODELS=[GEMINI_MODEL,...(process.env.GEMINI_FALLBACK||'gemini-flash-lite-latest,gemini-2.5-flash').split(',').map(x=>x.trim())].filter((x,i,a)=>x&&a.indexOf(x)===i);
 const noThink=new Set(),sleep=ms=>new Promise(z=>setTimeout(z,ms));
-const TUTOR_THINK=Math.max(0,Math.min(8000,Number(process.env.TUTOR_THINKING??1024)||0));
-async function gemini(obj,stream,ms=15000,think=0){let last={status:0};
-for(const mod of MODELS)for(let t=0;t<2;t++){
-const ac=new AbortController(),tm=setTimeout(()=>ac.abort(),ms);
+const TUTOR_THINK=Math.max(0,Math.min(8000,Number(process.env.TUTOR_THINKING??0)||0));
+// Uma tentativa em um modelo. Se o modelo não aceitar "pensar 0" (erro 400), repete sem esse ajuste.
+async function geminiTry(mod,obj,stream,ms,think,ac){
+for(let n=0;n<2;n++){const tm=setTimeout(()=>ac.abort(),ms);
 try{const o=noThink.has(mod)?obj:{...obj,generationConfig:{...obj.generationConfig,maxOutputTokens:((obj.generationConfig||{}).maxOutputTokens||1500)+think,thinkingConfig:{thinkingBudget:think}}};
 const r=await fetch('https://generativelanguage.googleapis.com/v1beta/models/'+encodeURIComponent(mod)+(stream?':streamGenerateContent?alt=sse':':generateContent'),{method:'POST',headers:{'content-type':'application/json','x-goog-api-key':GEMINI_API_KEY},body:JSON.stringify(o),signal:ac.signal});
-clearTimeout(tm);
-if(r.ok)return stream?r:await r.json();
-const j=await r.json().catch(()=>({}));last={status:r.status};console.error('Gemini',mod,r.status,JSON.stringify(j).slice(0,300));
-if(r.status==400&&!noThink.has(mod)){noThink.add(mod);t--;continue}
-if(![429,500,502,503,504].includes(r.status))break}
-catch(e){clearTimeout(tm);last={status:0};console.error('Gemini',mod,e.message)}
-await sleep(500*(t+1))}
+if(r.ok){if(stream){clearTimeout(tm);return r}const j=await r.json();clearTimeout(tm);return j}
+clearTimeout(tm);const j=await r.json().catch(()=>({}));console.error('Gemini',mod,r.status,JSON.stringify(j).slice(0,300));
+if(r.status==400&&!noThink.has(mod)){noThink.add(mod);continue}
+throw{status:r.status}}
+catch(e){clearTimeout(tm);if(e&&e.status!=null)throw e;console.error('Gemini',mod,e&&e.message);throw{status:0}}}
+throw{status:400}}
+// Corrida entre modelos: se o principal falha na hora (429/503) o reserva já entra; com "hedge" (ms) o reserva também entra se o principal estiver lento.
+// No máximo 2 rodadas, então o aluno nunca fica esperando minutos.
+async function gemini(obj,stream,ms=12000,think=0,hedge=0){let last={status:0};
+for(let round=0;round<2;round++){const acs=[];
+const res=await new Promise(resolve=>{let started=0,failed=0,fin=false,timer=null;
+const startNext=()=>{if(fin||started>=MODELS.length)return;const ac=new AbortController();acs.push(ac);const mod=MODELS[started++];
+geminiTry(mod,obj,stream,ms,think,ac).then(r=>{if(fin)return;fin=true;clearTimeout(timer);acs.forEach(x=>x!==ac&&x.abort());resolve(r)},e=>{last=e&&e.status!=null?e:{status:0};if(fin)return;failed++;if(failed>=MODELS.length){fin=true;clearTimeout(timer);resolve(null)}else startNext()})};
+startNext();if(hedge&&MODELS.length>1)timer=setTimeout(startNext,hedge)});
+if(res)return res;
+if(round==0&&[0,429,500,502,503,504].includes(last.status))await sleep(700);else break}
 throw Object.assign(new Error('gemini'),last)}
+const readT=(rd,ms=20000)=>{let t;return Promise.race([rd.read(),new Promise((_,j)=>{t=setTimeout(()=>j(new Error('stall')),ms)})]).finally(()=>clearTimeout(t))};
 const SYS="Você é o tutor e o assistente do StudyFlow, para estudantes do Ensino Médio no Brasil. Responda em português do Brasil. SEJA BREVE: vá direto ao ponto, em no máximo 5 a 8 linhas. Só se aprofunde se o aluno pedir mais. NUNCA use LaTeX nem o símbolo $. Escreva matemática em texto simples: Δ, √, x², ×, ÷, ±, π, ≤, ≥, frações como a/b. Evite tabelas e títulos com #; use no máximo **negrito** e listas simples com \"-\". Ao criar exercícios, não entregue o gabarito junto. VOCÊ CONTROLA O APP INTEIRO. No contexto você vê: matérias com médias, tarefas, notas, provas, revisões, o foco (timer) em andamento, meta, nível e aparência. Quando o aluno pedir uma ação, faça. Para cada ação coloque, DEPOIS da resposta, uma linha no formato [[ACTION:{\"type\":\"...\"}]]. Pode mandar várias linhas (uma por ação). Diga em uma frase o que vai fazer, mas NUNCA afirme que já deu certo: o app confirma sozinho. FALTOU INFORMAÇÃO? PERGUNTE. Se faltar algo essencial (minutos do foco, matéria, data, valor da nota, nome da avaliação), faça UMA pergunta curta e NÃO envie ACTION ainda. Logo depois da pergunta, sugira respostas rápidas em uma linha [[OPTIONS:opção 1|opção 2|opção 3]] (até 5, curtas; ex.: [[OPTIONS:15 min|25 min|45 min|60 min]]). Se o aluno já deu tudo, não pergunte: execute. Se o pedido for vago (\"coloque nota na prova\"), pergunte a matéria e a nota. Se a matéria não existir no contexto, pergunte se deve criar. AÇÕES (JSON; datas em YYYY-MM-DD, use \"hoje\" do contexto para calcular amanhã, sexta etc.; notas de 0 a 10 com ponto): add_task {title,subject,due,min,pr} | edit_task {title,new_title,due,min,pr,subject} | complete_task {title} | uncomplete_task {title} | remove_task {title} | add_subject {name} | rename_subject {subject,new_name} | remove_subject {subject} | add_review {topic,subject,due} | complete_review {topic} | remove_review {topic} | add_exam {subject,due,topics} | remove_exam {subject,due} | add_grade {subject,name,value} | edit_grade {subject,name,value,new_name} | remove_grade {subject,name} | set_goal {minutes} | set_target {value} | start_focus {subject,topic,minutes} | pause_focus {} | resume_focus {} | stop_focus {save} (save true guarda o tempo estudado, false descarta) | make_pack {subject,topic} (prepara uma revisão completa com resumo e questões difíceis) | open_pack {topic} | navigate {page,subject} (páginas: inicio, materias, tarefas, estudos, timer, mais, perfil, notificacoes, revisoes, progresso, tutor, personalizacao, conta, novidades) | set_style {mode: dark|light|auto, accent: nome da cor ou #hex, bg: pad|cor|graf|puro, anim: off|soft|normal|full} | set_name {name}. REVISE ANTES DE RESPONDER (em silêncio, sem escrever a revisão): (1) a resposta está correta e responde exatamente o que foi pedido? Em contas e fatos, confira passo a passo. (2) Olhei o contexto: a matéria, tarefa, prova, revisão ou nota JÁ EXISTE? NUNCA crie de novo o que já existe (veja materiasQueJaExistem); adicione só o que falta e diga em uma frase o que já existia. (3) As ações usam os nomes exatamente como estão no contexto, com datas e notas válidas, e só o que o aluno pediu? (4) Está curta, em português, sem LaTeX? Se algo falhar, corrija antes de responder. Se o pedido for vago (ex.: \"coloque umas matérias\"), não invente: pergunte quais, com [[OPTIONS:...]]. Para abrir telas use navigate: \"abre minhas notas de matemática\" = navigate {page:\"materias\",subject:\"Matemática\"}; \"abre as configurações\" = personalizacao; \"abre o timer\" = timer; \"abre as notificações\" = notificacoes; \"mostra meu progresso\" = progresso; \"abre a revisão de X\" = open_pack {topic:\"X\"}. Você pode apagar tarefas, matérias, notas, provas e revisões quando o aluno pedir claramente. Nunca invente uma ação que o aluno não pediu. Para pedidos só de explicação, não envie ACTION. Se o aluno perguntar sobre notas, médias, provas, tarefas, revisões ou o foco, responda usando o contexto, sem inventar dados que não estejam nele.";
 function prep(q){const msg=String(q.body.message||'').slice(0,2000);if(!msg.trim())return{err:'Escreva sua dúvida.'};
 const c=q.body.appContext&&typeof q.body.appContext==='object'?q.body.appContext:{},ctx=JSON.stringify(c).slice(0,9000);
@@ -73,11 +85,11 @@ const errOf=st=>({status:st==429?429:502,error:st==429?'Limite do tutor atingido
 app.post('/api/tutor/stream',auth,tlim,async(q,s)=>{try{
 if(!GEMINI_API_KEY)return s.status(503).json({error:'Tutor ainda não configurado no servidor.'});
 const pr=prep(q);if(pr.err)return s.status(400).json({error:pr.err});
-let r;try{r=await gemini(pr.obj,true,25000,TUTOR_THINK)}catch(e){const x=errOf(e.status||0);return s.status(x.status).json({error:x.error})}
+let r;try{r=await gemini(pr.obj,true,12000,TUTOR_THINK,4500)}catch(e){const x=errOf(e.status||0);return s.status(x.status).json({error:x.error})}
 s.status(200).set({'Content-Type':'text/event-stream; charset=utf-8','Cache-Control':'no-cache, no-transform','Connection':'keep-alive','X-Accel-Buffering':'no'});s.flushHeaders();
 const send=o=>{if(!s.writableEnded)s.write('data: '+JSON.stringify(o)+'\n\n')};
 const rd=r.body.getReader(),dec=new TextDecoder();let buf='',any=0,blk=0,gone=false;s.on('close',()=>{gone=true;rd.cancel().catch(()=>{})});
-try{for(;;){const{done,value}=await rd.read();if(done)break;buf+=dec.decode(value,{stream:true});
+try{for(;;){const{done,value}=await readT(rd);if(done)break;buf+=dec.decode(value,{stream:true});
 let i;while((i=buf.search(/\r?\n\r?\n/))>=0){const ev=buf.slice(0,i);buf=buf.slice(i).replace(/^\r?\n\r?\n/,'');
 for(const ln of ev.split(/\r?\n/)){if(!ln.startsWith('data:'))continue;let j;try{j=JSON.parse(ln.slice(5))}catch(e){continue}
 if(blocked(j))blk=1;const t=textOf(j);if(t){any=1;send({t})}}}}}
@@ -87,7 +99,7 @@ catch(e){console.error(e);if(!s.headersSent)s.status(500).json({error:'Erro no s
 // Versão normal (usada se o tempo real falhar)
 app.post('/api/tutor',auth,tlim,w(async(q,s)=>{if(!GEMINI_API_KEY)return s.status(503).json({error:'Tutor ainda não configurado no servidor.'});
 const pr=prep(q);if(pr.err)return s.status(400).json({error:pr.err});
-let j;try{j=await gemini(pr.obj,false,25000,TUTOR_THINK)}catch(e){const x=errOf(e.status||0);return s.status(x.status).json({error:x.error})}
+let j;try{j=await gemini(pr.obj,false,20000,TUTOR_THINK,6000)}catch(e){const x=errOf(e.status||0);return s.status(x.status).json({error:x.error})}
 const reply=textOf(j).trim();if(!reply&&blocked(j))return s.json({reply:BLOCKMSG});
 s.json({reply:reply||EMPTY})}));
 
@@ -149,6 +161,7 @@ const pub={'/':'index.html','/index.html':'index.html','/style.css':'style.css',
 app.get(Object.keys(pub),(q,s)=>{s.set('Cache-Control','no-cache');if(q.path.endsWith('.webmanifest'))s.type('application/manifest+json');s.sendFile(path.join(__dirname,pub[q.path]))});
 app.use((q,s)=>s.status(404).type('text').send('Não encontrado'));
 (async()=>{await pool.query(`CREATE TABLE IF NOT EXISTS users(id SERIAL PRIMARY KEY,email TEXT UNIQUE NOT NULL,name TEXT,password_hash TEXT NOT NULL,created_at TIMESTAMPTZ DEFAULT now());
+ALTER TABLE users ADD COLUMN IF NOT EXISTS photo TEXT;
 CREATE TABLE IF NOT EXISTS app_state(user_id INT PRIMARY KEY REFERENCES users(id) ON DELETE CASCADE,data JSONB NOT NULL,updated_at BIGINT NOT NULL);
 CREATE TABLE IF NOT EXISTS packs(user_id INT REFERENCES users(id) ON DELETE CASCADE,key TEXT NOT NULL,data JSONB NOT NULL,created_at BIGINT NOT NULL,PRIMARY KEY(user_id,key));
 CREATE TABLE IF NOT EXISTS push_subs(id SERIAL PRIMARY KEY,user_id INT REFERENCES users(id) ON DELETE CASCADE,endpoint TEXT UNIQUE NOT NULL,p256dh TEXT NOT NULL,auth TEXT NOT NULL,tz INT DEFAULT 0,created_at TIMESTAMPTZ DEFAULT now());

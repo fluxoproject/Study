@@ -526,3 +526,17 @@ input[type=range]::-moz-range-thumb{width:18px;height:18px;border-radius:50%;bac
 .card,.tabs,.qb,#nav,.circ,.tbar,.modal{border-color:var(--glb)}
 html[data-glass=off] .card,html[data-glass=off] .tabs,html[data-glass=off] .qb,html[data-glass=off] #nav,html[data-glass=off] .circ,html[data-glass=off] .tbar{background:var(--card)}
 .rsw.aic{padding:0;overflow:hidden}.rsw.aic img{width:100%;height:100%;object-fit:cover;border-radius:inherit;display:block}
+
+/* ================= Personalização em página única + aba Mais ================= */
+.pnav{position:sticky;top:calc(52px + env(safe-area-inset-top));z-index:7;display:flex;gap:8px;overflow-x:auto;margin:-4px -16px 6px;padding:8px 16px;scrollbar-width:none;background:color-mix(in srgb,var(--bg) 70%,transparent);-webkit-backdrop-filter:blur(18px);backdrop-filter:blur(18px)}
+.pnav::-webkit-scrollbar{display:none}
+.pnav button{flex:none;padding:8px 14px;border-radius:999px;font-weight:700;font-size:13px;background:var(--gl);border:1px solid var(--glb);color:var(--tx);box-shadow:inset 0 1px 0 var(--glh)}
+.pnav button:active{background:var(--acc);color:var(--onacc)}
+.psec{scroll-margin-top:calc(104px + env(safe-area-inset-top));padding-bottom:6px;margin-bottom:10px;border-bottom:1px solid var(--line)}
+.psec:last-child{border-bottom:0}
+.psec>h2{margin:14px 0 4px;font-size:20px}
+.psec .pl{display:block;color:var(--mu);font-size:12.5px;font-weight:800;letter-spacing:.04em;text-transform:uppercase;margin:16px 0 8px}
+.psec .sws,.psec .bgs{margin:8px 0 14px}
+.psec .rws+h2,.psec>h2+.rws{margin-top:8px}
+.mg{margin:20px 2px 8px;font-size:12.5px;font-weight:800;letter-spacing:.06em;text-transform:uppercase;color:var(--mu)}
+.mprof{margin-bottom:4px}

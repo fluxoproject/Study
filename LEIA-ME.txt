@@ -1,24 +1,21 @@
-StudyFlow 2.2 - o que fazer
+StudyFlow 2.3 - o que fazer
 
 1) No repositório (GitHub), substitua estes 4 arquivos: app.js, style.css, sw.js, server.js.
-   (Os outros — index.html, ícones, manifest, package.json — não mudaram. Os ic-*.png do nível 50 já estão no seu repositório.)
-   O server.js mudou só no texto: revisões da IA ainda mais fáceis e correção mais generosa. O Render faz o deploy sozinho.
+   (Os outros — index.html, ícones, manifest, package.json — não mudaram.)
+   O server.js mudou: o Render faz o deploy sozinho. Ele cria uma coluna nova (photo) na tabela de usuários sozinho, não precisa fazer nada.
 
 2) Abra o app e atualize a página. Se o visual antigo aparecer, feche e abra de novo (o app se atualiza sozinho na 2ª abertura).
 
 3) Novidades:
-   - Níveis: 1->2 custa 100 XP e cada nível custa um pouco mais, até 700 XP (49->50). Total até o 50: ~19.600 XP.
-   - Conquistas dão o DOBRO de XP.
-   - Bônus diário: bateu a meta do dia, ganha 25 XP + 5 XP por dia de sequência (até 175 XP).
-   - Escudo de sequência: 1 a cada 7 dias seguidos (máx. 3). Se você faltar 1 dia, o escudo salva a sequência sozinho
-     (só vale se a sequência tinha 3 dias ou mais). Veja em Mais > Progresso.
-   - Sons do app: sinos e marimba suaves, um som diferente para menu, botão principal, botão comum, seleção, gotinha nos sons,
-     conquista, bônus, escudo e uma música de ~3 segundos ao subir de nível (maior no nível 50).
-   - Sons relaxantes e músicas mais macios (menos agudos, mais eco). Eles já começam sozinhos quando você inicia o foco
-     (Personalização > Sons do app controla isso).
-   - Nível 50: Mais > Progresso > "Ícone do app" (cores, dourado e dourado com coroas).
-   - Vidro novo: mais profundo, com brilho na borda e reflexo suave, no modo escuro e no claro.
-
-4) Sobre o ícone do app no celular: o celular só lê o ícone na hora de adicionar à tela inicial. Depois de escolher o ícone no app,
-   apague o atalho e adicione de novo (iPhone: Safari > Compartilhar > Adicionar à Tela de Início; Android: menu do Chrome > Instalar app).
-   Também dá para baixar a imagem do ícone na hora em que você o escolhe.
+   - MÚSICAS REFEITAS: agora são composições fixas (piano, pad, caixinha de música, lo-fi, taças, flauta, etc.), todas no MESMO TOM
+     (Lá menor, acordes Am-F-C-G) e no MESMO ANDAMENTO. Dá para misturar quantas quiser: ficam sempre afinadas e sincronizadas.
+     Quem entra depois espera o próximo compasso para entrar junto, bem no tempo. Os sons de ambiente (chuva, vento...) continuam iguais.
+   - PERSONALIZAÇÃO EM UMA PÁGINA SÓ (Mais > Personalização): menu no topo (Aparência, Cores e fundos, Perfil, Recompensas, Metas e sons).
+     Molduras, títulos, ícone do app e especiais agora ficam aqui. Em Progresso ficou só um resumo das próximas recompensas.
+   - ABA MAIS reorganizada em grupos (Estudar, Seu espaço, Conta e app), com seu perfil no topo.
+   - FOTO DO GOOGLE: ela vira sua foto por padrão (também para quem já estava logado: o app busca no servidor). Se você escolher outra,
+     em Perfil aparece "Usar foto do Google" para voltar.
+   - IA mais rápida e com menos erros: se um modelo está ocupado, o servidor troca para outro na hora (antes tentava 4 vezes de ~25 s),
+     responde sem "pensar" demais e corta respostas que travam. No máximo ~25 s e ele avisa o erro.
+     Se quiser que ela pense mais (resposta melhor, porém mais lenta), no Render crie a variável TUTOR_THINKING (ex.: 512).
+   - Vários pequenos ajustes de segurança nos toques e na troca de ícone.

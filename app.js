@@ -16,8 +16,13 @@ let icPick=0,streaming=0,popId=null,busy=0,tErr=null,tmsg='Pensando…',ab=0,lp=
 
 // ---------- dados ----------
 // ---------- versão, novidades e base da sincronização ----------
-const APP_VER='2.2',DEV=(()=>{try{return localStorage['sf.dev']||(localStorage['sf.dev']=Math.random().toString(36).slice(2,10))}catch(e){return'x'}})();
-const CHANGELOG=[{v:'2.2',d:'2026-10-09',t:'Níveis mais fáceis e sons novos',it:[
+const APP_VER='2.3',DEV=(()=>{try{return localStorage['sf.dev']||(localStorage['sf.dev']=Math.random().toString(36).slice(2,10))}catch(e){return'x'}})();
+const CHANGELOG=[{v:'2.3',d:'2026-10-09',t:'Músicas novas e tudo mais organizado',it:[
+'Músicas refeitas: melodias fixas e bonitas, todas no mesmo tom e ritmo. Misture à vontade: ficam sempre sincronizadas',
+'Personalização em uma página só: aparência, cores, fundos, perfil, molduras, títulos e ícone, com menu no topo',
+'Aba Mais reorganizada em grupos, com seu perfil no topo',
+'Sua foto do Google vira a foto de perfil por padrão (dá para trocar e voltar quando quiser)',
+'IA bem mais rápida e com menos erros: troca de modelo na hora quando um está ocupado']},{v:'2.2',d:'2026-10-09',t:'Níveis mais fáceis e sons novos',it:[
 'Subir de nível ficou mais fácil: começa com 100 XP por nível e cresce até 700',
 'Conquistas dão o dobro de XP',
 'Bônus diário: bata a meta do dia e ganhe XP extra, que cresce com a sequência',
@@ -75,7 +80,7 @@ grades:[['Matemática','Prova 1',8.5],['Matemática','Trabalho',7.5],['Portuguê
 exams:[{id:uid(),subject:id('Matemática'),date:add(0,8)},{id:uid(),subject:id('Física'),date:add(0,15)}],sessions:ses,reviews:[['Revolução Industrial','História',0],['Equações do 2º grau','Matemática',1],['Célula eucarionte','Biologia',3]].map(([topic,s,d])=>({id:uid(),topic,subject:id(s),due:add(0,d),done:false})),active:null}}
 const empty=()=>({pal:4,user:{name:'Dudu',year:'',school:''},subjects:[],tasks:[],grades:[],exams:[],sessions:[],reviews:[],notifs:[],packs:[],active:null,set:{},del:{},st:{}});
 // garante os campos e aplica as cores novas das matérias (uma vez)
-const fix=()=>{S.user=S.user||{name:'Dudu',photo:''};S.user.photo=S.user.photo||'';S.ach=S.ach||{};S.set=S.set||{};S.del=S.del||{};S.st=S.st||{};S.cnt=S.cnt||{};COLS.forEach(k=>S[k]=S[k]||[]);
+const fix=()=>{S.user=S.user||{name:'Dudu',photo:''};S.user.photo=S.user.photo||'';S.user.gphoto=S.user.gphoto||'';S.ach=S.ach||{};S.set=S.set||{};S.del=S.del||{};S.st=S.st||{};S.cnt=S.cnt||{};COLS.forEach(k=>S[k]=S[k]||[]);
 if(S.pal!=4){S.subjects.forEach((s,i)=>s.color=PAL[i%PAL.length]);S.pal=4}
 const t0=S.updatedAt||0;COLS.forEach(c=>S[c].forEach(x=>{if(x._t==null)x._t=t0}));SCAL.forEach(k=>{if(S.st[k]==null)S.st[k]=t0});
 if(S.set.mode==null){let p={};try{p=JSON.parse(localStorage['sf.pers']||'{}')||{}}catch(e){}S.set={...S.set,mode:localStorage['sf.theme']||'dark',acc:p.acc||null,bg:p.bg||'pad'}}};
@@ -108,6 +113,7 @@ achHead=()=>{const A=achAll(),g=A.filter(a=>a.ok);return`<h2 style="margin:22px 
 // Curva de nível: nível 1→2 custa 100 XP e cada nível custa um pouco mais, até 700 XP (49→50)
 const LVC=l=>Math.round(100+(l-1)*600/48),LVT=(()=>{const a=[0];for(let l=1;l<50;l++)a.push(a[l-1]+LVC(l));return a})(),lvOf=x=>{let l=1;while(l<50&&x>=LVT[l])l++;return l};
 const rdone=()=>S.reviews.filter(r=>r.done).length,xp=()=>Math.round(dur(()=>1)/60)+rdone()*20+S.tasks.filter(t=>t.done).length*5+packXp()+chatXp()+achXp()+(S.dxp||0),lvl=()=>lvOf(xp()),dueRev=()=>S.reviews.filter(r=>!r.done&&r.due<=today()).length;
+const uph=()=>(S.user&&(S.user.photo||S.user.gphoto))||'';
 const ACH=()=>{const m=dur(()=>1)/60,n=S.sessions.length,tp=new Set(S.sessions.map(s=>s.topic)).size,l=Math.max(longest(),streak()),tasks=S.tasks.filter(t=>t.done).length,subs=new Set(S.sessions.map(s=>s.subject)).size,
 gr=S.grades.length,best=S.subjects.reduce((b,s)=>Math.max(b,avg(s.id)||0),0),pk=(S.packs||[]).filter(p=>p.result),perf=pk.filter(p=>p.result.pct>=100).length,
 lg=S.sessions.reduce((b,s)=>Math.max(b,s.duration/60),0),hr=s=>new Date(s.startedAt).getHours(),dset=f=>new Set(S.sessions.filter(f).map(s=>day(s.startedAt))).size,
@@ -140,8 +146,8 @@ const L=[
 ...T('bolt',dbl,[['dbl',1,'Em dobro','Estude o dobro da meta num dia',100]]),
 ...T('bot',chat,[['ai1',1,'Papo com o tutor','Converse com a IA',30],['ai10',10,'Bate-papo','Mande 10 mensagens para a IA',60],['ai25',25,'Amigo virtual','Mande 25 mensagens para a IA',100],['ai50',50,'Dupla de estudos','Mande 50 mensagens para a IA',160],['ai100',100,'Inseparáveis','Mande 100 mensagens para a IA',300],['ai250',250,'Sócio da IA','Mande 250 mensagens para a IA',600]]),
 ...T('bot',act,[['act1',1,'Mãos à obra','Peça uma ação para a IA fazer no app',40],['act10',10,'Assistente em ação','A IA faz 10 ações para você',80],['ai20',20,'Dupla perfeita','A IA faz 20 ações para você',120],['act50',50,'Chefe e assistente','A IA faz 50 ações para você',250],['act100',100,'Piloto automático','A IA faz 100 ações para você',450]]),
-...T('user',S.user.photo?1:0,[['ph',1,'Com a sua cara','Coloque uma foto de perfil',30]]),
-...T('user',(S.user.name&&S.user.name!='Dudu'?1:0)+(S.user.photo?1:0)+(st.frame?1:0)+(st.title?1:0),[['prof',4,'Perfil completo','Foto, nome, moldura e título escolhidos',60]]),
+...T('user',uph()?1:0,[['ph',1,'Com a sua cara','Coloque uma foto de perfil',30]]),
+...T('user',(S.user.name&&S.user.name!='Dudu'?1:0)+(uph()?1:0)+(st.frame?1:0)+(st.title?1:0),[['prof',4,'Perfil completo','Foto, nome, moldura e título escolhidos',60]]),
 ...T('palette',(st.acc||(st.bg&&st.bg!='pad'))?1:0,[['sty',1,'Estilo próprio','Personalize a cor ou o fundo',30]]),
 ...T('palette',cust,[['cust5',5,'Sob medida','Mude 5 opções de personalização',80]]),
 ...T('cloud',S.owner?1:0,[['cloud',1,'Nas nuvens','Entre numa conta e sincronize',40]])];
@@ -208,12 +214,11 @@ function tick(l,f,g,d,q){const t=ctx.currentTime,s=ctx.createBufferSource(),b=fl
 e.gain.setValueAtTime(g,t);e.gain.exponentialRampToValueAtTime(.0001,t+d);s.connect(b);b.connect(e);e.connect(l.out);s.start(t,rnd(0,5),d+.03)}
 function chirp(l,f0,f1,t,d,g,pan,wet){const x=ctx.createOscillator(),e=ctx.createGain();x.frequency.setValueAtTime(f0,t);x.frequency.exponentialRampToValueAtTime(f1,t+d*.8);
 e.gain.setValueAtTime(.0001,t);e.gain.linearRampToValueAtTime(g,t+Math.min(.015,d/3));e.gain.exponentialRampToValueAtTime(.0001,t+d);x.connect(e);route(l,e,pan,wet);x.start(t);x.stop(t+d+.05)}
-function drone(l,f,g){const x=ctx.createOscillator(),a=ctx.createGain();x.frequency.value=f;a.gain.value=g;x.connect(a);a.connect(l.out);lfo(l,rnd(.04,.09),g*.5,a.gain);x.start();l.nodes.push(x)}
-function padLoop(l,CH,g,len,wave){let k=0;every(l,len,len,()=>{const t=ctx.currentTime+.05;CH[k%CH.length].forEach(m=>[-1,1].forEach(s=>tone(l,mf(m),t,0,{w:wave||'triangle',a:len*.42,h:len*.32,r:len*.22,g:g,det:s*rnd(5,11),f:520,s:1})));k++},0)}
 function kick(l,t){const x=ctx.createOscillator(),g=ctx.createGain();x.frequency.setValueAtTime(120,t);x.frequency.exponentialRampToValueAtTime(42,t+.12);g.gain.setValueAtTime(.12,t);g.gain.exponentialRampToValueAtTime(.0001,t+.3);x.connect(g);g.connect(l.out);x.start(t);x.stop(t+.35)}
 function hat(l,t,v){const s=ctx.createBufferSource(),h=flt('highpass',4500),g=ctx.createGain();s.buffer=noise('white');g.gain.setValueAtTime(.028*v,t);g.gain.exponentialRampToValueAtTime(.0001,t+.05);s.connect(h);h.connect(g);g.connect(l.out);s.start(t,rnd(0,5),.08)}
 function thunder(l){const t=ctx.currentTime,s=ctx.createBufferSource(),f=flt('lowpass',rnd(120,260)),g=ctx.createGain();s.buffer=noise('brown');
 g.gain.setValueAtTime(.0001,t);g.gain.linearRampToValueAtTime(.7,t+1.3);g.gain.setTargetAtTime(0,t+1.5,2.3);s.loop=true;s.connect(f);f.connect(g);g.connect(l.out);s.start(t,rnd(0,4));s.stop(t+16)}
+function drone(l,f,g){const x=ctx.createOscillator(),a=ctx.createGain();x.frequency.value=f;a.gain.value=g;x.connect(a);a.connect(l.out);lfo(l,rnd(.04,.09),g*.5,a.gain);x.start();l.nodes.push(x)}
 const A={
 rain(l){const n=nsrc(l,'pink'),h=flt('highpass',420,.5),lp=flt('lowpass',5000,.5);n.connect(h);h.connect(lp);lp.connect(gn(.55,l.out));
 const w=nsrc(l,'white'),bp=flt('bandpass',3000,.6);w.connect(bp);bp.connect(gn(.055,l.out));every(l,.05,.22,()=>tick(l,rnd(1500,4200),.024,.035),0)},
@@ -242,38 +247,41 @@ space(l){[55,82.41,110.3,164.8].forEach((f,i)=>{const x=ctx.createOscillator(),g
 const n=nsrc(l,'pink'),f=flt('lowpass',260,.6),g=gn(.18,l.out);n.connect(f);f.connect(g);lfo(l,.04,.1,g.gain);lfo(l,.03,120,f.frequency)},
 snow(l){const n=nsrc(l,'pink'),b=flt('bandpass',380,.9),g=gn(.22,l.out);n.connect(b);b.connect(g);lfo(l,.05,.1,g.gain);lfo(l,.04,120,b.frequency);
 every(l,2.5,7,()=>tone(l,pick([1318.5,1568,1760,2093,2349]),ctx.currentTime,2.2,{g:.035,s:1,r:.5}),1)}};
+// ---- Músicas: todas no mesmo tom (Lá menor, acordes Am-F-C-G), no mesmo andamento e na mesma grade de compassos.
+// Por isso, misturar quantas quiser fica sempre afinado e perfeitamente sincronizado. Quem entra depois espera o próximo compasso.
+const BPM=68,BEAT=60/BPM,BAR=BEAT*4;let T0=null;
+const PADV=[[57,60,64],[57,60,65],[55,60,64],[55,59,62]],ARP=[[57,64,69,72,76],[53,60,65,69,72],[48,55,60,64,67],[50,55,59,62,67]],BASS=[45,41,48,43],AP=[0,2,3,4,3,2,3,2],
+MEL=[[[0,76,2],[2,72,1],[3,74,1]],[[0,77,2],[2,76,1],[3,72,1]],[[0,79,2],[2,76,1],[3,72,1]],[[0,74,3],[3,71,1]],[[0,81,2],[2,79,1],[3,76,1]],[[0,77,1.5],[1.5,76,.5],[2,72,2]],[[0,76,1],[1,79,1],[2,76,2]],[[0,74,2],[2,71,2]]];
+function bars(l,fn){let k=Math.max(0,Math.ceil((ctx.currentTime+.03-T0)/BAR));const run=()=>{if(l.dead||T0==null)return;const lim=ctx.currentTime+3;while(T0+k*BAR<lim){const t=T0+k*BAR;if(t>=ctx.currentTime-.02){try{fn(k,t)}catch(e){if(self.__sndDebug)console.error('Snd',e.message)}}k++}};run();const h=setInterval(run,400);l.cl.push(()=>clearInterval(h))}
+// piano de feltro: fundamental + harmônicas que somem mais rápido, filtro macio
+function felt(l,m,t,g,d){const f=mf(m),lp=flt('lowpass',Math.min(f*6,2800),.3);lp.connect(l.out);lp.connect(gn(.45,l.send));
+[[1,1,.5],[2,.3,.28],[3,.09,.16],[4,.03,.1]].forEach(([r,k,q],i)=>{const x=ctx.createOscillator(),e=ctx.createGain();x.frequency.value=f*r*(i%2?1.0007:.9996);e.gain.setValueAtTime(.0001,t);e.gain.linearRampToValueAtTime(g*k,t+.007);e.gain.setTargetAtTime(0,t+.012,d*q);x.connect(e);e.connect(lp);x.start(t);x.stop(t+d*q*7+.1)})}
+// pad macio: duas ondas levemente desafinadas por nota, entra e sai devagar (um acorde se mistura no seguinte)
+function padN(l,notes,t,dur,g,wave,cut){notes.forEach(m=>[-7,7].forEach(dt=>{const x=ctx.createOscillator(),e=ctx.createGain(),lp=flt('lowpass',cut||700,.4);x.type=wave||'triangle';x.frequency.value=mf(m);x.detune.value=dt;
+e.gain.setValueAtTime(.0001,t);e.gain.linearRampToValueAtTime(g,t+dur*.35);e.gain.setValueAtTime(g,t+dur*.7);e.gain.linearRampToValueAtTime(.0001,t+dur*1.35);x.connect(e);e.connect(lp);lp.connect(l.out);lp.connect(gn(.5,l.send));x.start(t);x.stop(t+dur*1.4)}))}
+function bassN(l,m,t,g,d){const f=mf(m);[[1,1],[2,.2]].forEach(([r,k])=>{const x=ctx.createOscillator(),e=ctx.createGain();x.frequency.value=f*r;e.gain.setValueAtTime(.0001,t);e.gain.linearRampToValueAtTime(g*k,t+.04);e.gain.setTargetAtTime(0,t+.05,d/3.2);x.connect(e);e.connect(l.out);x.start(t);x.stop(t+d*2+.2)})}
+function pluck(l,m,t,g,d,w){const f=mf(m),lp=flt('lowpass',3000,.4);lp.connect(l.out);lp.connect(gn(.55,l.send));
+[[1,1],[2,.22],[3.01,.07]].forEach(([r,k])=>{const x=ctx.createOscillator(),e=ctx.createGain();x.type=w||'sine';x.frequency.value=f*r;e.gain.setValueAtTime(.0001,t);e.gain.linearRampToValueAtTime(g*k,t+.004);e.gain.setTargetAtTime(0,t+.006,d/(3.5*r));x.connect(e);e.connect(lp);x.start(t);x.stop(t+d*2+.2)})}
+function flute(l,m,t,g,d){const f=mf(m),x=ctx.createOscillator(),x2=ctx.createOscillator(),e=ctx.createGain(),lp=flt('lowpass',2200,.3),v=ctx.createOscillator(),vg=ctx.createGain(),g2=gn(.12,e);x.frequency.value=f;x2.frequency.value=f*2;x2.connect(g2);
+vg.gain.setValueAtTime(0,t);vg.gain.linearRampToValueAtTime(5,t+d*.6);v.frequency.value=5;v.connect(vg);vg.connect(x.detune);vg.connect(x2.detune);
+e.gain.setValueAtTime(.0001,t);e.gain.linearRampToValueAtTime(g,t+.14);e.gain.setValueAtTime(g,t+Math.max(.15,d-.2));e.gain.linearRampToValueAtTime(.0001,t+d+.35);x.connect(e);e.connect(lp);lp.connect(l.out);lp.connect(gn(.5,l.send));[x,x2,v].forEach(o=>{o.start(t);o.stop(t+d+.5)})}
+function bowl(l,m,t,g,d){const f=mf(m);[[1,1],[1.0045,.5],[2.003,.3],[3.01,.1]].forEach(([r,k])=>{const x=ctx.createOscillator(),e=ctx.createGain();x.frequency.value=f*r;e.gain.setValueAtTime(.0001,t);e.gain.linearRampToValueAtTime(g*k,t+.03);e.gain.setTargetAtTime(0,t+.05,d/4);x.connect(e);e.connect(l.out);e.connect(gn(.6,l.send));x.start(t);x.stop(t+d*2)})}
+function rim(l,t,g){const s=ctx.createBufferSource(),b=flt('bandpass',1700,1.2),e=gn(0);s.buffer=noise('white');e.gain.setValueAtTime(g,t);e.gain.exponentialRampToValueAtTime(.0001,t+.09);s.connect(b);b.connect(e);e.connect(l.out);s.start(t,rnd(0,5),.12)}
 const M={
-piano(l){const N=pent(48,81);let i=Math.floor(N.length/2);every(l,1.1,3.2,()=>{i=clp(i+Math.round(rnd(-3,3)),0,N.length-1);const t=ctx.currentTime+.05,f=mf(N[i]),v=rnd(.07,.13);
-tone(l,f,t,3.2,{g:v,a:.012,r:.7,w:'triangle',f:2600,s:1});tone(l,f*2,t,1.5,{g:v*.25,a:.01,r:.3,f:3000});
-if(Math.random()<.28)tone(l,mf(N[Math.max(0,i-2)]),t+.02,3.2,{g:v*.7,a:.012,r:.7,w:'triangle',f:2400,s:1})},0)},
-pad(l){padLoop(l,[[48,55,59,64,67],[45,52,57,60,64],[41,48,53,57,60],[43,50,55,59,62]],.018,8)},
-box(l){const N=pent(72,96);let i=3;every(l,.38,.52,()=>{if(Math.random()<.22)return;i=clp(i+pick([-2,-1,-1,1,1,2]),0,N.length-1);const t=ctx.currentTime+.03,f=mf(N[i]);
-tone(l,f,t,1.8,{g:.07,a:.004,r:.35,s:1});tone(l,f*3,t,.6,{g:.012,a:.003,r:.1})},0)},
-lofi(l){const sp=60/68/2,CH=[[50,53,57,60,64],[43,47,50,53,57],[48,52,55,59,62],[45,48,52,55,59]];let nt=ctx.currentTime+.1,st=0;
-every(l,.2,.2,()=>{while(nt<ctx.currentTime+1.2){const bar=Math.floor(st/8)%4,b=st%8,t=nt+((b%2)?sp*.12:0);
-if(b==0){CH[bar].forEach((m,i)=>tone(l,mf(m+12),t+i*.012,2.4,{w:'triangle',g:.045,a:.008,r:.35,f:1800,s:1}));tone(l,mf(CH[bar][0]-12),t,2.2,{g:.16,a:.01,r:.4})}
-if(b==4&&Math.random()<.7)CH[bar].slice(1,4).forEach((m,i)=>tone(l,mf(m+12),t+i*.015,1.2,{w:'triangle',g:.03,a:.008,r:.25,f:1800,s:1}));
-if(b==0||b==5)kick(l,t);if(b==2||b==6)hat(l,t,.5);else if(b%2==1&&Math.random()<.5)hat(l,t,.25);
-if(b%2==0&&Math.random()<.3)tone(l,mf(pick([72,74,76,79,81])),t,.9,{w:'triangle',g:.035,a:.005,r:.2,f:2200,s:1});
-nt+=sp;st++}},.01)},
-bowls(l){every(l,5,11,()=>{const t=ctx.currentTime+.05,f=pick([174.6,196,220,261.6,293.7]);[[1,.14,9],[2.76,.06,6],[5.4,.03,4],[8.93,.015,3]].forEach(([r,g,d])=>tone(l,f*r,t,d,{g:g,a:.01,r:d/4,s:1}))},0)},
-aurora(l){const CH=[[50,57,62,66,69,74],[47,54,59,62,66,71],[43,50,55,59,62,67],[45,52,57,61,64,69]];let st=0;
-every(l,.36,.36,()=>{const c=CH[Math.floor(st/16)%4],p=[0,2,4,3,5,3,4,2][st%8];if(st%16==0)tone(l,mf(c[0]-12),ctx.currentTime+.03,5,{g:.1,a:.05,r:1.2,s:1});
-if(Math.random()>.12)tone(l,mf(c[p]+(Math.random()<.15?12:0)),ctx.currentTime+.03,2.2,{w:'triangle',g:.08,a:.006,r:.5,f:3000,s:1});st++},0)},
-stars(l){padLoop(l,[[45,52,57,60,64],[41,48,53,57,60],[38,45,50,53,57],[40,47,52,55,59]],.014,10);
-every(l,1.8,5,()=>tone(l,mf(pick([81,84,86,88,91,93])),ctx.currentTime+.02,2.6,{g:.04,a:.01,r:.6,s:1}),1)},
-zen(l){const N=[];for(let m=50;m<=84;m++)if([2,4,5,9,10].includes(m%12))N.push(m);let i=8;drone(l,mf(38),.04);
-every(l,1.8,5.5,()=>{i=clp(i+Math.round(rnd(-3,3)),0,N.length-1);const t=ctx.currentTime+.03,f=mf(N[i]);tone(l,f,t,1.6,{w:'triangle',g:.1,a:.004,r:.3,f:3200,s:1});
-if(Math.random()<.35)tone(l,f*2.005,t+.01,.7,{g:.02,a:.003,r:.12})},0)},
-deep(l){drone(l,36.7,.1);drone(l,55,.07);drone(l,73.4,.04);const n=nsrc(l,'brown'),f=flt('lowpass',200,.7),g=gn(.18,l.out);n.connect(f);f.connect(g);lfo(l,.04,.12,g.gain);lfo(l,.05,70,f.frequency);
-every(l,9,18,()=>tone(l,mf(pick([38,45,50,57])),ctx.currentTime,0,{g:.08,a:4,h:2,r:2.2,s:1}),3)},
-ench(l){padLoop(l,[[48,55,60,64],[45,52,57,60],[41,48,53,57],[43,50,55,59]],.012,10);const N=pent(60,84);let i=4;
-every(l,2.2,4.5,()=>{i=clp(i+Math.round(rnd(-2,2)),0,N.length-1);const t=ctx.currentTime+.05,f=mf(N[i]);tone(l,f,t,0,{g:.07,a:.35,h:1.3,r:.5,vib:10,s:1});tone(l,f*2,t,0,{w:'triangle',g:.012,a:.35,h:1.3,r:.5})},1)},
-cosmos(l){padLoop(l,[[33,45,52,57,64],[36,43,52,55,64],[29,41,48,53,60],[31,43,50,55,62]],.012,12);
-every(l,5,10,()=>{const t=ctx.currentTime;tone(l,mf(pick([76,81,83,88,93])),t+.02,5,{g:.045,a:.005,r:1.1,s:1});tone(l,mf(pick([69,74])),t+.4,4,{w:'triangle',g:.03,a:.005,r:.9,s:1})},2)},
-dawn(l){padLoop(l,[[48,55,60,64,67],[41,48,53,57,60],[43,50,55,59,62],[45,52,57,60,64]],.014,10);const N=pent(60,88);let i=5;
-every(l,.9,2.4,()=>{i=clp(i+Math.round(rnd(-3,3)),0,N.length-1);tone(l,mf(N[i]),ctx.currentTime+.03,2.4,{w:'triangle',g:.07,a:.006,r:.55,f:3000,s:1})},0)},
-eternal(l){M.cosmos(l);M.bowls(l);M.zen(l)}};
+piano(l){bars(l,(k,t)=>{const c=k%4;AP.forEach((ix,i)=>felt(l,ARP[c][ix],t+i*BEAT/2,i%2?.032:.042,1.5));felt(l,BASS[c],t,.08,2.6);MEL[k%8].forEach(([b,m])=>felt(l,m,t+b*BEAT,.085,2.2))})},
+pad(l){bars(l,(k,t)=>{padN(l,PADV[k%4],t,BAR,.02);bassN(l,BASS[k%4],t,.05,BAR*.9)})},
+box(l){bars(l,(k,t)=>{const c=k%4;MEL[k%8].forEach(([b,m])=>pluck(l,m+12,t+b*BEAT,.06,1.8));[1,3,5,7].forEach(i=>pluck(l,ARP[c][AP[i]]+12,t+i*BEAT/2,.03,1.2))})},
+lofi(l){bars(l,(k,t)=>{const c=k%4,e=BEAT/2;for(let i=0;i<8;i++){const tt=t+i*e+(i%2?e*.16:0);if(i==0||i==5)kick(l,tt);if(i==2||i==6)rim(l,tt,.03);hat(l,tt,i%2?.5:.9)}
+PADV[c].forEach((m,j)=>{felt(l,m+12,t+j*.012,.04,1.6);felt(l,m+12,t+5*e+e*.16+j*.012,.03,1.2)});bassN(l,BASS[c],t,.07,BEAT*1.6);bassN(l,BASS[c],t+5*e+e*.16,.05,BEAT);MEL[k%8].forEach(([b,m])=>felt(l,m,t+b*BEAT,.06,1.8))})},
+bowls(l){bars(l,(k,t)=>{const r=[57,53,60,55][k%4];bowl(l,r,t,.07,7);if(k%2==1)bowl(l,r+7,t+BEAT*2,.035,5)})},
+aurora(l){bars(l,(k,t)=>{const c=k%4;padN(l,PADV[c].map(m=>m+12),t,BAR,.008);[0,1,2,3,4,3,2,1].forEach((ix,i)=>pluck(l,ARP[c][ix]+12,t+i*BEAT/2,.035,2.6))})},
+stars(l){bars(l,(k,t)=>{padN(l,PADV[k%4],t,BAR,.014);if(k%2==0)MEL[k%8].forEach(([b,m])=>pluck(l,m+12,t+b*BEAT,.045,4))})},
+zen(l){bars(l,(k,t)=>{MEL[k%8].forEach(([b,m])=>pluck(l,m,t+b*BEAT,.08,1.6,'triangle'));bassN(l,BASS[k%4],t,.06,BAR)})},
+deep(l){bars(l,(k,t)=>{padN(l,PADV[k%4].map(m=>m-12),t,BAR,.03,'triangle',420);bassN(l,BASS[k%4]-12,t,.12,BAR*1.2)})},
+ench(l){bars(l,(k,t)=>{const c=k%4;padN(l,PADV[c],t,BAR,.012);MEL[k%8].forEach(([b,m,d])=>flute(l,m,t+b*BEAT,.06,d*BEAT*.9));[0,3,5].forEach(i=>pluck(l,ARP[c][AP[i]]+12,t+i*BEAT/2,.025,1.6))})},
+cosmos(l){bars(l,(k,t)=>{const c=k%4;padN(l,PADV[c].map(m=>m-12),t,BAR,.024,'triangle',500);if(k%2==0){pluck(l,PADV[c][2]+24,t+BEAT,.04,5);pluck(l,PADV[c][1]+24,t+BEAT*2.5,.03,5)}})},
+dawn(l){bars(l,(k,t)=>{const c=k%4;MEL[k%8].forEach(([b,m,d])=>padN(l,[m],t+b*BEAT,d*BEAT,.016,'sawtooth',1100));[0,2,4,6].forEach(i=>felt(l,ARP[c][AP[i]],t+i*BEAT/2,.03,1.4));bassN(l,BASS[c],t,.06,BAR)})},
+eternal(l){M.piano(l);M.pad(l);M.stars(l)}};
 let uRev=null;const UIM=m=>440*Math.pow(2,(m-69)/12),PN=[72,74,76,79,81,84];
 function uBus(){if(uRev)return uRev;uRev=ctx.createConvolver();const len=Math.floor(ctx.sampleRate*1.9),bf=ctx.createBuffer(2,len,ctx.sampleRate);for(let c=0;c<2;c++){const d=bf.getChannelData(c);let p=0;for(let i=0;i<len;i++){p=p*.5+(Math.random()*2-1)*.5;d[i]=p*Math.pow(1-i/len,3)}}uRev.buffer=bf;const g=ctx.createGain();g.gain.value=.45;uRev.connect(g);g.connect(mU);return uRev}
 function uo(t,f,g,d,o){o=o||{};const x=ctx.createOscillator(),e=ctx.createGain(),lp=flt('lowpass',o.lp||4200,.4);x.type=o.w||'sine';x.frequency.setValueAtTime(f,t);if(o.to)x.frequency.exponentialRampToValueAtTime(o.to,t+d*.7);
@@ -295,11 +303,11 @@ finish:t=>{bell(t,84,.06,1.6);bell(t+.3,79,.06,1.8);bell(t+.62,72,.07,2.4)},
 warn:t=>{mar(t,64,.05,.25);mar(t+.12,60,.05,.35)},bad:t=>mar(t,55,.06,.4),notif:t=>{bell(t,86,.05,1.2);bell(t+.14,91,.045,1.5)},del:t=>drop(t,520,300,.05,.2)};
 function ui(n,i){if(!unlocked||!S||!S.set||S.set.ui===0||(n=='notif'&&S.set.nsnd===0)||!init())return;resume();const f=UI[n];if(!f)return;try{f(ctx.currentTime+.01,i)}catch(e){}}
 function start(id){if(!init())return false;resume();if(LY[id])return true;const d=SND.find(s=>s[0]==id);if(!d)return false;const kind=d[3],fn=(kind=='m'?M:A)[id];if(!fn)return false;
-const l={id,dead:false,nodes:[],cl:[],out:ctx.createGain(),send:ctx.createGain()};l.out.gain.value=0;l.out.connect(kind=='m'?mM:mA);l.send.gain.value=kind=='m'?.65:.5;l.send.connect(kind=='m'?revM:revA);
-try{fn(l)}catch(e){stopLayer(l);return false}l.out.gain.setTargetAtTime(1,ctx.currentTime,.8);LY[id]=l;return true}
+const l={id,kind,dead:false,nodes:[],cl:[],out:ctx.createGain(),send:ctx.createGain()};l.out.gain.value=0;l.out.connect(kind=='m'?mM:mA);l.send.gain.value=kind=='m'?.65:.5;l.send.connect(kind=='m'?revM:revA);
+if(kind=='m'&&!Object.values(LY).some(x=>x.kind=='m'))T0=ctx.currentTime+.3;try{fn(l)}catch(e){stopLayer(l);return false}l.out.gain.setTargetAtTime(1,ctx.currentTime,.8);LY[id]=l;return true}
 function stopLayer(l){l.dead=true;l.cl.forEach(f=>f());if(!ctx)return;const t=ctx.currentTime;l.out.gain.cancelScheduledValues(t);l.out.gain.setTargetAtTime(0,t,.35);l.send.gain.setTargetAtTime(0,t,.35);
 setTimeout(()=>{l.nodes.forEach(n=>{try{n.stop()}catch(e){}});try{l.out.disconnect();l.send.disconnect()}catch(e){}},3000)}
-function stop(id){const l=LY[id];if(!l)return;delete LY[id];stopLayer(l)}
+function stop(id){const l=LY[id];if(!l)return;delete LY[id];stopLayer(l);if(!Object.values(LY).some(x=>x.kind=='m'))T0=null}
 addEventListener('pointerdown',()=>{unlocked=true;resume()},true);addEventListener('keydown',()=>{unlocked=true},true);
 document.addEventListener('visibilitychange',()=>{if(!document.hidden)resume()});
 return{ui,start,stop,vol:applyVol,on:id=>!!LY[id],ids:()=>Object.keys(LY),stopAll:()=>Object.keys(LY).forEach(stop),_test:{A,M,UI}}})();
@@ -380,7 +388,7 @@ if('serviceWorker' in navigator&&/^https?:$/.test(location.protocol))addEventLis
 const ib=(i,fn,l)=>`<button class="circ" aria-label="${l}" onclick="${fn}">${I(i,20)}</button>`,
 topbar=(t,back)=>`<div class="top">${ib('back',back,'Voltar')}<h1>${t}</h1><span></span></div>`,
 ht=t=>`<p class="hint">${t}</p>`,sq=(i,c='var(--acc)')=>`<span class="sq" style="background:${c};color:${c.startsWith('var')?'var(--onacc)':'#fff'}">${i}</span>`,
-name=()=>(S.user.name||'Dudu').trim()||'Dudu',inicial=()=>esc(name()[0].toUpperCase()),avatar=(big=0)=>S.user.photo?`<img class="avatar-img ${big?'avatar-big':''}" src="${esc(S.user.photo)}" alt="Foto de ${esc(name())}" referrerpolicy="no-referrer" draggable="false" onerror="this.replaceWith(document.createTextNode(this.dataset.i))" data-i="${esc([...name()][0].toUpperCase())}">`:inicial(),
+name=()=>(S.user.name||'Dudu').trim()||'Dudu',inicial=()=>esc(name()[0].toUpperCase()),avatar=(big=0)=>uph()?`<img class="avatar-img ${big?'avatar-big':''}" src="${esc(uph())}" alt="Foto de ${esc(name())}" referrerpolicy="no-referrer" draggable="false" onerror="this.replaceWith(document.createTextNode(this.dataset.i))" data-i="${esc([...name()][0].toUpperCase())}">`:inicial(),
 dm=d=>new Date(d+'T12:00').toLocaleDateString('pt-BR',{day:'numeric',month:'long'}),wd=d=>new Date(d+'T12:00').toLocaleDateString('pt-BR',{weekday:'short'}).replace('.',''),
 dd=d=>Math.round((new Date(d+'T12:00')-new Date(today()+'T12:00'))/864e5),
 dl=d=>{const n=dd(d);return n<0?'Atrasada':n==0?'Hoje':n==1?'Amanhã':wd(d)+', '+d.slice(8)+'/'+d.slice(5,7)},
@@ -492,7 +500,7 @@ ${packList()}<div class="tabs">${[['pend','Pendentes',pend.length],['conc','Conc
 ${rtab=='pend'?(blk('Atrasadas',late)+blk('Hoje',hoje)+blk('Próximas',prox)||'<div class="card empty">Nenhuma revisão pendente.</div>'):(dn.length?`<div class="card list">${dn.map(row).join('')}</div>`:'<div class="card empty">Nenhuma revisão concluída ainda.</div>')}
 <p class="hint c">Você já revisou ${rdone()} ${rdone()==1?'assunto':'assuntos'}.</p>`},
 more(){if(sub=='nset')return ntSettings();if(sub=='snd')return sndView();if(sub=='rev')return P.rev();if(sub=='pers')return P.pers();if(sub=='acct')return acctView();if(sub=='tutor')return tutorView();if(sub=='prog')return progView();return moreMenu()},
-profile(){const L=lvl();return`${topbar('Perfil',"go('home')")}<div class="card c" style="padding:26px 16px"><span class="circ av ${frameCls()}" style="width:84px;height:84px;font-size:38px;margin:0 auto 14px">${avatar(1)}</span><div class="row" style="justify-content:center;gap:8px;margin-bottom:14px"><button class="g mini-g" onclick="pickPhoto()">${I('camera',16)} ${S.user.photo?'Trocar foto':'Adicionar foto'}</button>${S.user.photo?`<button class="g mini-g" onclick="rmPhoto()">Remover</button>`:''}</div><div class="f"><label for="nm" class="mu">Seu nome</label><input id="nm" value="${esc(name())}" style="text-align:center" onchange="S.user.name=this.value.trim()||'Dudu';save()"></div><div class="ttl ${isLegend()?'gold':''}">${isLegend()?I('crown',16)+' ':''}${esc(curTitle())}</div><div style="margin-top:14px"><b>Nível ${L}</b> <small>${lvl()>=MAXLV?'Nível máximo':xpIn()+'/'+xpNeed()+' XP'}</small></div><div class="bar"><i style="width:${xpIn()/xpNeed()*100}%"></i></div></div>${mrow('trophy','Progresso e recompensas','Nível, molduras, títulos e medalhas',"go('more','prog')")}${mrow('bell','Notificações',unread()?unread()+' novas':'Notas, revisões e avisos',"go('notifs')")}${mrow('cloud','Conta e nuvem',TK()?'Sincronização ativa':'Entre para salvar na nuvem',"go('more','acct')")}${mrow('palette','Personalização','Cores, animações e aparência',"go('more','pers')")}${themeRow()}${TK()?`<button class="g danger" onclick="logout()">Sair da conta</button>`:''}`}};
+profile(){const L=lvl();return`${topbar('Perfil',"go('home')")}<div class="card c" style="padding:26px 16px"><span class="circ av ${frameCls()}" style="width:84px;height:84px;font-size:38px;margin:0 auto 14px">${avatar(1)}</span><div class="row" style="justify-content:center;gap:8px;margin-bottom:14px"><button class="g mini-g" onclick="pickPhoto()">${I('camera',16)} ${uph()?'Trocar foto':'Adicionar foto'}</button>${S.user.photo?`<button class="g mini-g" onclick="rmPhoto()">${S.user.gphoto?'Usar foto do Google':'Remover'}</button>`:''}</div>${S.user.gphoto&&!S.user.photo?'<p class="hint" style="margin:-6px 0 12px">Usando a foto da sua conta Google. Toque em Trocar foto para escolher outra.</p>':''}<div class="f"><label for="nm" class="mu">Seu nome</label><input id="nm" value="${esc(name())}" style="text-align:center" onchange="S.user.name=this.value.trim()||'Dudu';save()"></div><div class="ttl ${isLegend()?'gold':''}">${isLegend()?I('crown',16)+' ':''}${esc(curTitle())}</div><div style="margin-top:14px"><b>Nível ${L}</b> <small>${lvl()>=MAXLV?'Nível máximo':xpIn()+'/'+xpNeed()+' XP'}</small></div><div class="bar"><i style="width:${xpIn()/xpNeed()*100}%"></i></div></div>${mrow('trophy','Progresso e recompensas','Nível, molduras, títulos e medalhas',"go('more','prog')")}${mrow('bell','Notificações',unread()?unread()+' novas':'Notas, revisões e avisos',"go('notifs')")}${mrow('cloud','Conta e nuvem',TK()?'Sincronização ativa':'Entre para salvar na nuvem',"go('more','acct')")}${mrow('palette','Personalização','Cores, animações e aparência',"go('more','pers')")}${themeRow()}${TK()?`<button class="g danger" onclick="logout()">Sair da conta</button>`:''}`}};
 const tgRow=(i,l,d,on,fn)=>`<div class="card menu" onclick="${fn}" role="switch" aria-checked="${on}" tabindex="0">${sq(I(i,22))}<div class="grow"><b>${l}</b><br><small>${d}</small></div><span class="tg" aria-hidden="true" data-on="${on}"></span></div>`,
 seg=(key,list,cur)=>`<div class="tabs">${list.map(([k,l])=>`<button class="${cur==k?'on':''}" onclick="setSet({${key}:'${k}'});render(1)">${l}</button>`).join('')}</div>`;
 // ---------- sons: telas e controles ----------
@@ -520,8 +528,12 @@ sndRow=()=>`<div class="card menu" onclick="sndModal()" role="button" tabindex="
 const acctView=()=>`${topbar('Conta e nuvem',"go('more')")}${TK()?`<div class="card c"><div style="display:flex;justify-content:center;margin-bottom:10px">${sq(I('cloud',24))}</div><b>Sincronização ativa</b><br><small>${esc(localStorage['studyflow.email']||'')}</small><br><small>${lastSync?'Última sincronização às '+new Date(lastSync).toLocaleTimeString('pt-BR',{hour:'2-digit',minute:'2-digit'}):'Sincronizando…'}</small><p class="hint" style="margin:10px 0 0">Tarefas, notas, provas, revisões, personalização e o timer ficam iguais em todos os seus aparelhos.</p><button class="p" onclick="sync(1).then(()=>toast('Tudo atualizado','','Sincronizado'))">${I('repeat',18)} Sincronizar agora</button><button class="g" onclick="logout()">Sair da conta</button></div>`:`<form class="card f" onsubmit="event.preventDefault();authDo('login')"><label for="ae">E-mail</label><input id="ae" type="email" autocomplete="email" required><label for="ap">Senha (mínimo 6 caracteres)</label><div class="pw"><input id="ap" type="password" autocomplete="current-password" required><button type="button" class="eye" aria-label="Mostrar senha" onclick="togglePw('ap',this)">${I('eye',19)}</button></div><div id="am" class="hint" style="margin:0" role="status"></div><button class="p">${I('user',18)} Entrar</button><button type="button" class="g" style="margin:0" onclick="authDo('register')">Criar conta</button><button type="button" class="google" onclick="googleLogin()">${GLOGO} Continuar com Google</button><small class="c">Ao entrar, seus dados são unidos aos da nuvem.</small></form>`}`,
 progView=()=>{const L=lvl();return`${topbar('Progresso',"go('more')")}<div class="card"><div class="row">${sq(I('trophy',24))}<div class="grow"><div class="big">Nível ${L} <small class="ttl2">${esc(curTitle())}</small></div><div class="bar" style="margin-top:6px"><i style="width:${xpIn()/xpNeed()*100}%"></i></div><small>${lvl()>=MAXLV?'Nível máximo! Você liberou tudo.':xpIn()+' / '+xpNeed()+' XP'}${nextRew(L)&&lvl()<MAXLV?' · próxima recompensa no nível '+nextRew(L):''}</small></div></div></div><div class="card" style="margin-top:12px"><div class="row">${sq(I('flame',22))}<div class="grow"><b>Sequência: ${streak()} dia(s)</b><br><small>Bata a meta do dia e ganhe +${25+Math.min(Math.max(streak(),1),30)*5} XP de bônus (cresce com a sequência). Escudos: ${S.shield||0}/3. Você ganha 1 a cada 7 dias seguidos e ele salva a sequência se você faltar 1 dia.</small></div></div></div>
 <div class="grid"><div class="card"><div class="big">${streak()}</div><small>dias seguidos</small></div><div class="card"><div class="big">${Math.max(longest(),streak())}</div><small>melhor sequência</small></div><div class="card"><div class="big">${hm(dur(()=>1))}</div><small>total estudado</small></div><div class="card"><div class="big">${S.sessions.length}</div><small>sessões</small></div></div>
-${rewardsUI()}${achHead()}<div class="grid">${achList().map(a=>{const ok=a.ok;return`<div class="card ach ${ok?'':'off'}">${sq(I(a.i,22))}<b>${a.n}</b><small>${a.d}</small><div class="bar"><i style="width:${Math.min(100,a.v/a.t*100)}%"></i></div><small>${Math.min(Math.round(a.v),a.t)}/${a.t}${ok?', concluída':''}</small><span class="xpb ${ok?'got':''}">+${a.x} XP</span></div>`}).join('')}</div>`},
-moreMenu=()=>{const nr=dueRev(),nu=unread();return`${appbar()}<div class="head"><h1>Mais</h1></div>${mrow('repeat','Revisões',nr?nr+(nr==1?' conteúdo para rever hoje':' conteúdos para rever hoje'):'Conteúdos para rever',"openRev('more')")}${mrow('trophy','Progresso e recompensas','Nível, recompensas e medalhas',"go('more','prog')")}${mrow('bot','Tutor com IA','Controla o app e tira dúvidas',"go('more','tutor')")}${mrow('bell','Notificações',nu?nu+(nu==1?' nova':' novas'):'Notas, revisões e avisos',"go('notifs')")}${mrow('sliders','Ajustes de avisos','O que avisar, horários e push no celular',"go('more','nset')")}${mrow('music','Sons e música','Sons relaxantes para estudar',"go('more','snd')")}${mrow('cloud','Conta e nuvem',TK()?'Sincronização ativa':'Entre para salvar na nuvem',"go('more','acct')")}${mrow('palette','Personalização','Cores, animações e aparência',"go('more','pers')")}${mrow('info','Novidades do app','Versão '+APP_VER,"go('news')")}${standalone()?'':mrow('download','Instalar app','Adicionar à tela inicial','inst()')}${themeRow()}
+${progNext()}${achHead()}<div class="grid">${achList().map(a=>{const ok=a.ok;return`<div class="card ach ${ok?'':'off'}">${sq(I(a.i,22))}<b>${a.n}</b><small>${a.d}</small><div class="bar"><i style="width:${Math.min(100,a.v/a.t*100)}%"></i></div><small>${Math.min(Math.round(a.v),a.t)}/${a.t}${ok?', concluída':''}</small><span class="xpb ${ok?'got':''}">+${a.x} XP</span></div>`}).join('')}</div>`},
+moreMenu=()=>{const nr=dueRev(),nu=unread(),L=lvl();return`${appbar()}<div class="head"><h1>Mais</h1></div>
+<div class="card menu mprof" onclick="go('profile')"><span class="circ av ${frameCls()}" style="width:54px;height:54px;font-size:22px;flex:none">${avatar()}</span><div class="grow"><b>${esc(name())}</b><br><small>${esc(curTitle())} · Nível ${L}</small><div class="bar" style="margin-top:7px"><i style="width:${lvl()>=MAXLV?100:xpIn()/xpNeed()*100}%"></i></div></div>${I('chev',18)}</div>
+<h3 class="mg">Estudar</h3>${mrow('repeat','Revisões',nr?nr+(nr==1?' conteúdo para rever hoje':' conteúdos para rever hoje'):'Conteúdos para rever',"openRev('more')")}${mrow('bot','Tutor com IA','Controla o app e tira dúvidas',"go('more','tutor')")}${mrow('trophy','Progresso e conquistas','Nível, sequência e medalhas',"go('more','prog')")}
+<h3 class="mg">Seu espaço</h3>${mrow('palette','Personalização','Aparência, cores, fundos, perfil e recompensas',"go('more','pers')")}${mrow('music','Sons e música','Sons relaxantes para estudar',"go('more','snd')")}${mrow('bell','Notificações',nu?nu+(nu==1?' nova':' novas'):'Notas, revisões e avisos',"go('notifs')")}
+<h3 class="mg">Conta e app</h3>${mrow('cloud','Conta e nuvem',TK()?'Sincronização ativa':'Entre para salvar na nuvem',"go('more','acct')")}${mrow('sliders','Ajustes de avisos','O que avisar, horários e push no celular',"go('more','nset')")}${mrow('info','Novidades do app','Versão '+APP_VER,"go('news')")}${standalone()?'':mrow('download','Instalar app','Adicionar à tela inicial','inst()')}${themeRow()}
 <h2 style="margin:22px 0 10px">Dados</h2><button class="g" onclick="resetAll()">Apagar tudo e começar do zero</button><button class="g" onclick="loadDemo()">Carregar dados de demonstração</button>`};
 async function resetAll(){if(!await askYes('Apagar tudo?',TK()?'Isso apaga TUDO: matérias, tarefas, notas, provas, revisões, histórico, conquistas, nível, cores, foto e notificações. Vale para todos os seus aparelhos e não dá para desfazer.':'Isso apaga TUDO deste aparelho: dados, conquistas, nível, cores e foto. Não dá para desfazer.','Apagar tudo',1))return;
 const ra=Date.now(),o={owner:S.owner,del:S.del,st:S.st};S=empty();Object.assign(S,o);S.set={mode:'dark'};S.lv=1;S.cnt={};S.ach={};S.resetAt=ra;
@@ -534,15 +546,19 @@ P.pers=()=>{const p=PE(),s=SET(),t=TH(),cur=(p.acc||'').toLowerCase(),bg=p.bg||'
 const sw=all.map(([n,c,lk],k)=>{const lo=lk&&L<lk?lk:0,on=c=='#3D8BFF'?!cur:cur==c.toLowerCase(),A=c=='#3D8BFF'?def:pal(t,'pad',c)['--acc'];return`<button class="sw2 ${on?'on':''} ${lo?'lk':''}" style="--c:${A};--k:${k}" aria-label="${n}${lo?' (nível '+lo+')':''}" aria-pressed="${on}" onclick="setAcc('${c}')"><span>${on?I('check',20):lo?I('lock',18):''}</span><small>${lo?'Nível '+lo:n}</small></button>`}).join('');
 const bgs=[...BGS.map(([k,n])=>[k,n,0]),...REW.bgs.map(([l,k,n])=>[k,n,l])].map(([k,n,lk])=>{const lo=lk&&L<lk?lk:0,o=pal(t,k,p.acc||null),b=o['--bg']||(t=='dark'?'#0A1220':'#F1F6FD'),cd=o['--card']||(t=='dark'?'#121C30':'#fff'),ac=o['--acc']||def;return`<button class="bgo ${bg==k?'on':''} ${lo?'lk':''}" aria-label="Fundo ${n}" aria-pressed="${bg==k}" onclick="setBg('${k}')"><span class="pv" style="background:${b}"><i style="background:${cd}"></i><i style="background:${cd}"></i><i style="background:${ac};width:55%;height:8px"></i>${lo?`<em class="lko">${I('lock',18)}</em>`:''}</span><small>${lo?'Nível '+lo:n}</small></button>`}).join('');
 const an=ANIMS.find(a=>a[0]==(s.anim||(matchMedia('(prefers-reduced-motion:reduce)').matches?'soft':'normal')))||ANIMS[2];
-return`${topbar('Personalização',"go('more')")}<h2 style="margin:0 0 10px">Modo</h2><div class="tabs">${[['dark','moon','Escuro'],['light','sun','Claro'],['auto','monitor','Automático']].map(([k,i,l])=>`<button class="${(s.mode||'dark')==k?'on':''}" onclick="setMode('${k}')">${I(i,16)} ${l}</button>`).join('')}</div>
-<h2 style="margin:20px 0 0">Cor de destaque</h2><div class="sws">${sw}</div>
-<h2 style="margin:0">Fundo</h2><div class="bgs">${bgs}</div>
-<h2 style="margin:20px 0 10px">Animações</h2>${seg('anim',ANIMS.map(a=>[a[0],a[1]]),an[0])}<p class="hint" style="margin:-6px 0 0">${an[2]}.</p>
-<h2 style="margin:20px 0 10px">Cantos</h2>${seg('round',[['sharp','Retos'],['mid','Médios'],['round','Redondos']],s.round||'round')}
-<h2 style="margin:20px 0 10px">Tamanho do texto</h2>${seg('font',[['s','Pequeno'],['m','Normal'],['l','Grande']],s.font||'m')}
-<h2 style="margin:20px 0 10px">Efeitos</h2>${tgRow('layers','Efeito vidro','Fundos translúcidos com desfoque',s.glass!==0,"setSet({glass:SET().glass===0?1:0});render(1)")}${tgRow('bolt','Vibração','Vibra ao concluir, subir de nível e iniciar o foco',s.vib!==0,"setSet({vib:SET().vib===0?1:0});buzz(20);render(1)")}${tgRow('bell','Sons do app','Toques, conquistas, nível e avisos',s.ui!==0,"setSet({ui:SET().ui===0?1:0});Snd.ui('ok');render(1)")}
-<h2 style="margin:20px 0 10px">Seu perfil e metas</h2>${mrow('user','Foto e nome','Moldura: '+(REW.frames.find(f=>f[1]==s.frame&&L>=f[0])?.[2]||'nenhuma')+' · título: '+curTitle(),"go('profile')")}${mrow('trophy','Molduras, fundos e títulos','Recompensas liberadas por nível',"go('more','prog')")}${mrow('clock','Meta diária',(S.goal||60)+' min por dia','setGoal()')}${mrow('target','Média desejada',vir(S.target||8)+' nas matérias','setTarget()')}${mrow('music','Sons e música','Sons do app e sons relaxantes para estudar',"go('more','snd')")}${mrow('sliders','Ajustes de avisos','O que avisar, horários e push no celular',"go('more','nset')")}
-<button class="g" onclick="resetPers()">${I('repeat',17)} Restaurar padrão</button>`};
+const nav=[['ps-ap','Aparência'],['ps-cor','Cores e fundos'],['ps-pf','Perfil'],['ps-rw','Recompensas'],['ps-sm','Metas e sons']];
+return`${topbar('Personalização',"go('more')")}<div class="pnav">${nav.map(([id,l])=>`<button onclick="psGo('${id}')">${l}</button>`).join('')}</div>
+<section class="psec" id="ps-ap"><h2>Aparência</h2>
+<label class="pl">Modo</label><div class="tabs">${[['dark','moon','Escuro'],['light','sun','Claro'],['auto','monitor','Automático']].map(([k,i,l])=>`<button class="${(s.mode||'dark')==k?'on':''}" onclick="setMode('${k}')">${I(i,16)} ${l}</button>`).join('')}</div>
+<label class="pl">Animações</label>${seg('anim',ANIMS.map(a=>[a[0],a[1]]),an[0])}<p class="hint" style="margin:6px 0 0">${an[2]}.</p>
+<label class="pl">Cantos</label>${seg('round',[['sharp','Retos'],['mid','Médios'],['round','Redondos']],s.round||'round')}
+<label class="pl">Tamanho do texto</label>${seg('font',[['s','Pequeno'],['m','Normal'],['l','Grande']],s.font||'m')}
+<label class="pl">Efeitos</label>${tgRow('layers','Efeito vidro','Fundos translúcidos com desfoque',s.glass!==0,"setSet({glass:SET().glass===0?1:0});render(1)")}${tgRow('bolt','Vibração','Vibra ao concluir, subir de nível e iniciar o foco',s.vib!==0,"setSet({vib:SET().vib===0?1:0});buzz(20);render(1)")}${tgRow('bell','Sons do app','Toques, conquistas, nível e avisos',s.ui!==0,"setSet({ui:SET().ui===0?1:0});Snd.ui('ok');render(1)")}</section>
+<section class="psec" id="ps-cor"><h2>Cores e fundos</h2><label class="pl">Cor de destaque</label><div class="sws">${sw}</div><label class="pl">Fundo</label><div class="bgs">${bgs}</div></section>
+<section class="psec" id="ps-pf"><h2>Perfil</h2><div class="card menu" onclick="go('profile')"><span class="circ av ${frameCls()}" style="width:54px;height:54px;font-size:22px;flex:none">${avatar()}</span><div class="grow"><b>${esc(name())}</b><br><small>${esc(curTitle())} · Nível ${L}</small></div><span class="mu">Editar foto e nome</span>${I('chev',18)}</div>${rewardsUI('pf')}</section>
+<section class="psec" id="ps-rw"><h2>Recompensas</h2>${rewardsUI('rw')}${mrow('trophy','Progresso e conquistas','Nível, XP, sequência e medalhas',"go('more','prog')")}</section>
+<section class="psec" id="ps-sm"><h2>Metas e sons</h2>${mrow('clock','Meta diária',(S.goal||60)+' min por dia','setGoal()')}${mrow('target','Média desejada',vir(S.target||8)+' nas matérias','setTarget()')}${mrow('music','Sons e música','Sons do app e sons relaxantes para estudar',"go('more','snd')")}${mrow('sliders','Ajustes de avisos','O que avisar, horários e push no celular',"go('more','nset')")}
+<button class="g" onclick="resetPers()">${I('repeat',17)} Restaurar padrão</button></section>`};
 P.login=()=>`<div class="login"><div class="logo-mark"><i class="lg"></i></div><h1>StudyFlow</h1><form class="card f" onsubmit="event.preventDefault();authDo('login')"><label for="ae">E-mail</label><input id="ae" type="email" autocomplete="email" placeholder="voce@email.com" required><label for="ap">Senha</label><div class="pw"><input id="ap" type="password" autocomplete="current-password" placeholder="Mínimo 6 caracteres" required><button type="button" class="eye" aria-label="Mostrar senha" onclick="togglePw('ap',this)">${I('eye',19)}</button></div><div id="am" class="hint" style="margin:0" role="status"></div><button class="p">Entrar</button><button type="button" class="g" style="margin:0" onclick="authDo('register')">Criar conta</button><button type="button" class="google" onclick="googleLogin()">${GLOGO} Continuar com Google</button></form><button class="skip" onclick="skipLogin()">Continuar sem conta</button></div>`;
 const modal=(title,body,actions)=>{$('#modal-root').innerHTML=`<div class="modal-back" onclick="closeModal(event)"><section class="modal" role="dialog" aria-modal="true" aria-label="${esc(title)}" onclick="event.stopPropagation()"><button class="modal-x" aria-label="Fechar" onclick="closeModal()">${I('x',18)}</button><h2>${esc(title)}</h2>${body}<div class="modal-actions">${actions}</div></section></div>`;setTimeout(()=>$('#modal-root input')?.focus(),20)};
 const closeModal=e=>{if(!e||e.target===e.currentTarget){$('#modal-root').innerHTML='';if(askRes){const r=askRes;askRes=null;r(null)}}};
@@ -629,17 +645,20 @@ if(L>S.lv){const o=S.lv;S.lv=L;setTimeout(()=>levelUp(o,L),350);for(let i=o+1;i<
 function levelUp(o,L){if(gate())return;const rw=[];for(let i=o+1;i<=L;i++)rw.push(...rewardsAt(i));const nx=nextRew(L);
 modal(L>=MAXLV?'NÍVEL MÁXIMO!':'Subiu de nível!',`<div class="lvup ${L>=MAXLV?'legend':''}"><div class="lvn">${L}</div><p class="hint">${L>=MAXLV?'Você virou uma Lenda do StudyFlow! Veja tudo que desbloqueou.':'Você chegou ao nível '+L+'.'}</p>${rw.length?`<div class="lvr">${rw.map(r=>`<span>${I('gift',15)} ${esc(r)}</span>`).join('')}</div>`:`<p class="hint">${nx?'Próxima recompensa no nível '+nx+'.':'Você já viu tudo. Lenda!'}</p>`}</div>`,`<button class="g" onclick="closeModal();go('more','prog')">Ver recompensas</button><button class="p" onclick="closeModal()">Continuar</button>`);bigBurst();Snd.ui(L>=MAXLV?'legend':'level');buzz([40,60,40,60,120])}
 const equip=(k,v)=>{setSet({[k]:v});render(1)},
-rewardsUI=()=>{const L=lvl(),s=SET(),p=PE(),t=TH(),
+rewardsUI=(mode)=>{const L=lvl(),s=SET(),p=PE(),t=TH(),
 chip=(ok,on,l,click,inner,lab,sub)=>`<button class="rw ${ok?'':'lk'} ${on?'on':''}" onclick="${ok?click:`lockToast(${l})`}">${inner}<b>${lab}</b><small>${ok?(on?'Em uso':sub):'Nível '+l}</small></button>`,
 cols=REW.colors.map(([l,n,c])=>chip(L>=l,(s.acc||'').toLowerCase()==c.toLowerCase(),l,`setAcc('${c}')`,`<span class="rsw" style="background:${c}">${L>=l?'':I('lock',16)}</span>`,n,'Usar')),
 bgs=REW.bgs.map(([l,k,n,h])=>chip(L>=l,p.bg==k,l,`setBg('${k}')`,`<span class="rsw sq2" style="background:linear-gradient(135deg,${hsl(h,60,t=='dark'?18:88)},${hsl((h+40)%360,70,t=='dark'?30:76)})">${L>=l?'':I('lock',16)}</span>`,n,'Usar')),
-frs=[[1,'','Nenhuma'],...REW.frames].map(([l,k,n])=>chip(L>=l,(s.frame||'')==k,l,`equip('frame','${k}')`,`<span class="rsw fprev ${k?'fr-'+k:''}">${S.user.photo?`<img src="${esc(S.user.photo)}" alt="" referrerpolicy="no-referrer">`:I('user',18)}</span>`,n,'Usar')),
+frs=[[1,'','Nenhuma'],...REW.frames].map(([l,k,n])=>chip(L>=l,(s.frame||'')==k,l,`equip('frame','${k}')`,`<span class="rsw fprev ${k?'fr-'+k:''}">${uph()?`<img src="${esc(uph())}" alt="" referrerpolicy="no-referrer">`:I('user',18)}</span>`,n,'Usar')),
 icos=APPICONS.map(([k,n])=>chip(L>=MAXLV,(s.icon||'')==k,MAXLV,`setIconK('${k}')`,`<span class="rsw sq2 aic"><img src="${icoSrc(k,192)}" alt=""></span>`,n,'Usar')),
 tts=REW.titles.map(([l,n])=>chip(L>=l,curTitle()==n,l,`equip('title','${n}')`,`<span class="rsw tt">${I('star',18)}</span>`,n,'Usar')),
 ext=REW.extras.map(([l,n])=>`<div class="rw ${L>=l?'on':'lk'}"><span class="rsw tt">${L>=l?I('crown',18):I('lock',16)}</span><b>${n}</b><small>${L>=l?'Liberado':'Nível '+l}</small></div>`),
 snds=SND.map(([id,n,l,k,ic])=>`<div class="rw ${L>=l?'':'lk'}" onclick="go('more','snd')"><span class="rsw tt">${L>=l?I(ic,18):I('lock',16)}</span><b>${esc(n)}</b><small>${L>=l?(k=='m'?'Música':'Ambiente'):'Nível '+l}</small></div>`),
 sec=(t,a)=>`<h2 style="margin:18px 0 8px">${t}</h2><div class="rws">${a.join('')}</div>`;
-return `<h2 style="margin:20px 0 2px">Recompensas</h2><p class="hint">Cada nível libera novidades até o nível ${MAXLV}. ${nextRew(L)?'Próxima no nível '+nextRew(L)+'.':'Você liberou tudo!'}</p>${sec('Cores',cols)}${sec('Fundos',bgs)}${sec('Molduras da foto',frs)}${sec('Títulos',tts)}${sec('Sons e músicas',snds)}${sec('Ícone do app (nível '+MAXLV+')',icos)}${sec('Especiais do nível '+MAXLV,ext)}`};
+if(mode=='pf')return sec('Molduras da foto',frs)+sec('Títulos',tts);
+return `<p class="hint">Cada nível libera novidades até o nível ${MAXLV}. ${nextRew(L)?'Próxima no nível '+nextRew(L)+'.':'Você liberou tudo!'}</p>${sec('Ícone do app (nível '+MAXLV+')',icos)}${sec('Especiais do nível '+MAXLV,ext)}`};
+const progNext=()=>{const L=lvl(),n=nextRew(L);return `<div class="card"><div class="row">${sq(I('gift',22))}<div class="grow"><b>Recompensas</b><br><small>${n?'Próxima no nível '+n+': '+esc(rewardsAt(n).slice(0,3).join(', ')):'Você liberou tudo!'}</small></div></div><button class="g" style="margin-top:10px" onclick="go('more','pers')">${I('palette',17)} Abrir em Personalização</button></div>`},
+psGo=id=>{const e=document.getElementById(id);if(e)e.scrollIntoView({behavior:'smooth',block:'start'})};
 
 // ---------- revisão completa feita pela IA ----------
 let pkS={id:null,i:0,tab:'res',ans:{},sel:{},fb:{},draft:'',busy:0,gen:0,fail:{},last:null};
@@ -835,7 +854,7 @@ async function pullPacks(){try{const since=+(localStorage['sf.pks']||0),r=await 
 // entrar: junta os dados deste aparelho com os da conta (se for outra conta ou só a demonstração, começa limpo)
 const isDemo=()=>!!S.demo||(!S.owner&&S.subjects.length==8&&S.tasks.some(t=>t.title=='Revisar matemática'));
 async function afterLogin(r,g){setTK(r.token,r.email);if((S.owner&&S.owner!==r.email)||isDemo()){S=empty()}S.owner=r.email;delete S.demo;fix();snapshot();persist();remoteTs=0;await sync(true);
-if(g){if(!S.user.photo&&g.photo){S.user.photo=g.photo;S.user.ps='g'}if((!S.user.name||S.user.name=='Dudu')&&g.name)S.user.name=g.name}
+if(g){if(g.photo)S.user.gphoto=g.photo;if((!S.user.name||S.user.name=='Dudu')&&g.name)S.user.name=g.name}
 try{localStorage.removeItem('sf.skip')}catch(e){}save();paintTheme();pushCheck();go('home');toast('Conta conectada','','Tudo certo')}
 async function googleReply(res){try{closeModal();const r=await api('POST','/google',{credential:res.credential});await afterLogin(r,{name:r.name,photo:r.photo})}catch(e){toast(e.message,'','Não consegui entrar')}}
 let gInit=0;
@@ -856,7 +875,7 @@ const gate=()=>!TK()&&!localStorage['sf.skip'],skipLogin=()=>{try{localStorage['
 if(S.owner||isDemo()){try{if(S.owner)localStorage['studyflow.backup']=JSON.stringify(S)}catch(e){}S=empty();fix();snapshot();persist();paintTheme()}go('home')};
 const wake=()=>{if(TK()&&base())fetch(base()+'/api/health').catch(()=>{})};
 document.addEventListener('visibilitychange',()=>{if(!document.hidden){wake();sync();checkAlerts();prepPacks()}});addEventListener('focus',()=>sync());addEventListener('online',()=>sync(1));
-setInterval(()=>{if(!document.hidden)sync()},20000);setTimeout(()=>{try{if(dailyCheck())save()}catch(e){}},3000);setInterval(()=>{try{if(!document.hidden&&dailyCheck())save()}catch(e){}},300000);setInterval(()=>{if(!document.hidden){checkAlerts();prepPacks()}},600000);setInterval(()=>{if(!document.hidden&&page=='more'&&sub=='tutor')wake()},240000);
+setInterval(()=>{if(!document.hidden)sync()},20000);setTimeout(()=>{try{if(dailyCheck())save()}catch(e){}},3000);setTimeout(()=>{if(TK()&&S.user&&!S.user.gphoto&&!S.user.noG)api('GET','/me').then(r=>{if(r&&r.photo){S.user.gphoto=r.photo;if((!S.user.name||S.user.name=='Dudu')&&r.name)S.user.name=r.name;save();render(1)}else{S.user.noG=1}}).catch(()=>{})},4500);setInterval(()=>{try{if(!document.hidden&&dailyCheck())save()}catch(e){}},300000);setInterval(()=>{if(!document.hidden){checkAlerts();prepPacks()}},600000);setInterval(()=>{if(!document.hidden&&page=='more'&&sub=='tutor')wake()},240000);
 // abrir pelo toque numa notificação push
 const launchGo=g=>{const m=NAV[norm(g)];if(m&&!gate()){page=m[0];sub=m[1]||''}};
 try{const g=new URLSearchParams(location.search).get('go');if(g){launchGo(g);history.replaceState(null,'',location.pathname)}}catch(e){}
@@ -868,7 +887,7 @@ render();updNotice();checkAlerts();sync(1);pushCheck();setTimeout(prepPacks,3000
 
 
 // ---------- onda ao tocar nos botões ----------
-document.addEventListener('pointerdown',e=>{const b=e.target.closest('.p,.g,.tile,.qb,.sc,.menu,.mini,.tabs button,.chips button,.strip button');if(!b||b.disabled)return;const r=b.getBoundingClientRect(),z=Math.max(r.width,r.height)*2,w=document.createElement('span');w.className='rip';w.style.cssText=`width:${z}px;height:${z}px;left:${e.clientX-r.left-z/2}px;top:${e.clientY-r.top-z/2}px`;b.appendChild(w);setTimeout(()=>w.remove(),650)});
+document.addEventListener('pointerdown',e=>{const b=e.target.closest&&e.target.closest('.p,.g,.tile,.qb,.sc,.menu,.mini,.tabs button,.chips button,.strip button');if(!b||b.disabled)return;const r=b.getBoundingClientRect(),z=Math.max(r.width,r.height)*2,w=document.createElement('span');w.className='rip';w.style.cssText=`width:${z}px;height:${z}px;left:${e.clientX-r.left-z/2}px;top:${e.clientY-r.top-z/2}px`;b.appendChild(w);setTimeout(()=>w.remove(),650)});
 
 // ---------- números que sobem até o valor ----------
 function cu(){document.querySelectorAll('[data-cu]').forEach(el=>{const n=+el.dataset.cu,f=el.dataset.f;if(!n)return;const fm=v=>f=='hm'?hm(v):Math.round(v),t0=performance.now();(function st(t){const k=Math.min(1,(t-t0)/900),e=1-Math.pow(1-k,3);el.textContent=fm(n*e);if(k<1)requestAnimationFrame(st)})(t0)})}
