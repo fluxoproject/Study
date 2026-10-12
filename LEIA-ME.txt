@@ -1,21 +1,20 @@
-StudyFlow 2.3 - o que fazer
+StudyFlow 2.4 - o que fazer
 
-1) No repositório (GitHub), substitua estes 4 arquivos: app.js, style.css, sw.js, server.js.
-   (Os outros — index.html, ícones, manifest, package.json — não mudaram.)
-   O server.js mudou: o Render faz o deploy sozinho. Ele cria uma coluna nova (photo) na tabela de usuários sozinho, não precisa fazer nada.
+1) No GitHub, envie TUDO deste zip direto na raiz do repositório, substituindo os arquivos que já existem:
+   app.js, style.css, sw.js  e os 9 sons de natureza (.m4a).
+   index.html e server.js não mudaram. Não precisa de pasta.
+2) Abra o app e atualize a página. Se aparecer o visual antigo, feche e abra de novo (o app baixa os sons novos uma vez).
 
-2) Abra o app e atualize a página. Se o visual antigo aparecer, feche e abra de novo (o app se atualiza sozinho na 2ª abertura).
+Trocar áudios no futuro: é só jogar o arquivo .m4a com o MESMO nome (rain.m4a, storm.m4a...) na raiz do GitHub.
+O app confere sozinho se o arquivo mudou e usa o novo na próxima vez que o som tocar. Não precisa mexer em código.
 
-3) Novidades:
-   - MÚSICAS REFEITAS: agora são composições fixas (piano, pad, caixinha de música, lo-fi, taças, flauta, etc.), todas no MESMO TOM
-     (Lá menor, acordes Am-F-C-G) e no MESMO ANDAMENTO. Dá para misturar quantas quiser: ficam sempre afinadas e sincronizadas.
-     Quem entra depois espera o próximo compasso para entrar junto, bem no tempo. Os sons de ambiente (chuva, vento...) continuam iguais.
-   - PERSONALIZAÇÃO EM UMA PÁGINA SÓ (Mais > Personalização): menu no topo (Aparência, Cores e fundos, Perfil, Recompensas, Metas e sons).
-     Molduras, títulos, ícone do app e especiais agora ficam aqui. Em Progresso ficou só um resumo das próximas recompensas.
-   - ABA MAIS reorganizada em grupos (Estudar, Seu espaço, Conta e app), com seu perfil no topo.
-   - FOTO DO GOOGLE: ela vira sua foto por padrão (também para quem já estava logado: o app busca no servidor). Se você escolher outra,
-     em Perfil aparece "Usar foto do Google" para voltar.
-   - IA mais rápida e com menos erros: se um modelo está ocupado, o servidor troca para outro na hora (antes tentava 4 vezes de ~25 s),
-     responde sem "pensar" demais e corta respostas que travam. No máximo ~25 s e ele avisa o erro.
-     Se quiser que ela pense mais (resposta melhor, porém mais lenta), no Render crie a variável TUTOR_THINKING (ex.: 512).
-   - Vários pequenos ajustes de segurança nos toques e na troca de ícone.
+Sons refeitos (3 minutos cada, voltam do fim para o começo sem corte e sem repetição perceptível):
+chuva, tempestade, vento, riacho, lareira, ondas, floresta, cachoeira e caverna.
+Noite de grilos, ruídos e músicas continuam como estavam.
+
+Corrigido
+- Travando/lento (Android e PC): desfoque dos cards bem mais leve; em Android e aparelhos fracos os cards ficam sem desfoque
+  e as animações que ficam rodando o tempo todo são desligadas. O timer não grava mais o app inteiro a cada segundo.
+- Tela bloqueada: ao desbloquear, o timer confere o tempo na hora (e avisa se o foco acabou) e os sons que o sistema pausou voltam sozinhos.
+  Se você pausar pelo botão da tela de bloqueio, continuam pausados.
+- Cache dos áudios renovado (os sons antigos não ficam presos no aparelho).
