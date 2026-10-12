@@ -20,6 +20,7 @@ const APP_VER='2.4',DEV=(()=>{try{return localStorage['sf.dev']||(localStorage['
 const CHANGELOG=[{v:'2.4',d:'2026-10-12',t:'Sons de natureza novos e app mais leve',it:[
 'Sons de natureza refeitos: chuva, tempestade, vento, riacho, lareira, ondas, floresta, cachoeira e caverna, com 3 minutos sem repetir e sem corte na volta',
 'App mais rápido no Android e no PC: menos desfoque pesado e menos animações em segundo plano',
+'O app volta na mesma página em que você estava ao recarregar ou reabrir',
 'Timer e sons mais estáveis com a tela bloqueada: voltam sozinhos ao abrir o app e o foco confere o tempo na hora']},{v:'2.3',d:'2026-10-09',t:'Músicas novas e tudo mais organizado',it:[
 'Músicas refeitas: melodias fixas e bonitas, todas no mesmo tom e ritmo. Misture à vontade: ficam sempre sincronizadas',
 'Personalização em uma página só: aparência, cores, fundos, perfil, molduras, títulos e ícone, com menu no topo',
@@ -215,7 +216,7 @@ function ui(n,i){if(!unlocked||!S||!S.set||S.set.ui===0||(n=='notif'&&S.set.nsnd
 // As 13 músicas têm 4 minutos, no mesmo tom e andamento: misturar fica sempre afinado e no tempo.
 const SIL='data:audio/wav;base64,UklGRiQAAABXQVZFZm10IBAAAAABAAEAQB8AAEAfAAABAAgAZGF0YQAAAAA=';
 const elVol=k=>Math.min(1,Math.pow(vol(k),1.4));
-function blob(id){return BL[id]||(BL[id]=fetch(id+'.m4a').then(r=>{if(!r.ok)throw new Error('audio');return r.blob()}).then(b=>URL.createObjectURL(b)).catch(e=>{delete BL[id];throw e}))}
+function blob(id){const get=u=>fetch(u).then(r=>{if(!r.ok)throw new Error('audio');return r.blob()});return BL[id]||(BL[id]=get(id+'.m4a').catch(()=>get(id+'.m4a?r='+Date.now())).then(b=>URL.createObjectURL(b)).catch(e=>{delete BL[id];throw e}))}
 function fade(l,to,ms,done){clearInterval(l.fd);const from=l.el.volume,t0=Date.now();l.fading=1;l.fd=setInterval(()=>{const k=Math.min(1,(Date.now()-t0)/ms);try{l.el.volume=Math.max(0,Math.min(1,from+(to-from)*k))}catch(e){}if(k>=1){clearInterval(l.fd);l.fading=0;if(done)done()}},60)}
 const ms=()=>{try{window.msSync&&window.msSync()}catch(e){}};
 function start(id){const d=SND.find(s=>s[0]==id);if(!d)return false;if(LY[id])return true;UP=0;init();resume();
@@ -766,7 +767,7 @@ return `${topbar('Tutor com IA',"go('more')")}<div class="msg ai-welcome">Olá, 
 // ---------- navegação ----------
 const go=(p,sb='')=>{page=p;sub=sb;icPick=0;if(sb=='tutor')wake();showRF=0;ttab='d3';rtab='pend';range='semana';fm={s:'',t:''};if(p!='timer')done=null;scrollTo(0,0);render(0)};
 const mini=()=>{const a=S.active;if(!a||page=='timer'||gate())return'';const run=running(a);return`<div class="mt" role="button" tabindex="0" aria-label="Voltar ao cronômetro" onclick="go('timer')"><span class="sq" style="background:${sj(a.subject).color};color:#fff">${ic(sj(a.subject).name,20)}</span><div class="grow"><b>${esc(sj(a.subject).name)}</b><br><small>${run?'Tempo restante':'Pausado'}</small></div><b class="mtt" id="mt">${fmt(a.planned-elapsed(a))}</b><button class="mb" aria-label="${run?'Pausar':'Continuar'}" onclick="event.stopPropagation();pause()">${I(run?'pause':'play',18)}</button></div>`};
-function render(keep){const A=$('#app'),nv=$('#nav');A.classList.toggle('enter',!keep);
+function render(keep){const A=$('#app'),nv=$('#nav');try{localStorage['sf.nav']=JSON.stringify({p:page,s:sub})}catch(e){}A.classList.toggle('enter',!keep);
 if(gate()){nv.style.display='none';$('#mini').innerHTML='';document.body.classList.remove('hasmini');A.innerHTML=P.login();return}
 nv.style.display='';const items=[['home','home','Início'],['subjects','book','Matérias'],['tasks','tasks','Tarefas'],['study','chart','Estudos'],['more','more','Mais']],cur=({timer:'study',pack:'more',news:'more'})[page]||page,ix=items.findIndex(x=>x[0]==cur);
 // o menu é montado uma vez só: assim a bolinha azul desliza de um botão para o outro
@@ -823,6 +824,8 @@ if(S.owner||isDemo()){try{if(S.owner)localStorage['studyflow.backup']=JSON.strin
 const wake=()=>{if(TK()&&base())fetch(base()+'/api/health').catch(()=>{})};
 document.addEventListener('visibilitychange',()=>{if(!document.hidden){wake();sync();checkAlerts();prepPacks()}});addEventListener('focus',()=>sync());addEventListener('online',()=>sync(1));
 setInterval(()=>{if(!document.hidden)sync()},20000);setTimeout(()=>{try{if(dailyCheck())save()}catch(e){}},3000);setTimeout(()=>{if(TK()&&S.user&&!S.user.gphoto&&!S.user.noG)api('GET','/me').then(r=>{if(r&&r.photo){S.user.gphoto=r.photo;if((!S.user.name||S.user.name=='Dudu')&&r.name)S.user.name=r.name;save();render(1)}else{S.user.noG=1}}).catch(()=>{})},4500);setInterval(()=>{try{if(!document.hidden&&dailyCheck())save()}catch(e){}},300000);setInterval(()=>{if(!document.hidden){checkAlerts();prepPacks()}},600000);setInterval(()=>{if(!document.hidden&&page=='more'&&sub=='tutor')wake()},240000);
+// voltar na mesma página ao recarregar ou reabrir o app
+try{const n=JSON.parse(localStorage['sf.nav']||'null');if(n&&typeof n.p=='string'&&!gate()&&['home','subjects','tasks','study','more','profile','notifs','news'].includes(n.p)){page=n.p;sub=typeof n.s=='string'?n.s:'';if(page=='subjects'&&sub&&!S.subjects.find(x=>x.id==sub))sub=''}}catch(e){}
 // abrir pelo toque numa notificação push
 const launchGo=g=>{const m=NAV[norm(g)];if(m&&!gate()){page=m[0];sub=m[1]||''}};
 try{const g=new URLSearchParams(location.search).get('go');if(g){launchGo(g);history.replaceState(null,'',location.pathname)}}catch(e){}
