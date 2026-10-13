@@ -597,3 +597,10 @@ html[data-lite="1"] #nav,html[data-lite="1"] .modal{-webkit-backdrop-filter:blur
 html[data-lite="1"] :is(.hero2::before,.wave,.p::after,.logo-mark,.ci,.bd,.hero2 .p,.circ.av,svg[data-i=bell],svg[data-i=flame],svg[data-i=bot],svg[data-i=cloud],svg[data-i=trophy]),html[data-lite="1"] body::before{animation:none!important}
 html[data-lite="1"]:not([data-anim=full]) #scene *{animation:none!important;will-change:auto!important}
 html:not([data-lite="1"]) #nav,html:not([data-lite="1"]) .tbar{will-change:transform}
+
+/* ---- 2.5 fundos mais leves: menos elementos e cores suaves ---- */
+html[data-pbg] #scene :is(.b,.c,.e,.f,.d2){display:none!important}
+html[data-pbg] #scene .d{opacity:.45!important}
+html[data-pbg]:not([data-theme=light]) #scene{opacity:.5}
+html[data-pbg] #scene .a{animation:none!important}
+body::before{opacity:.7}

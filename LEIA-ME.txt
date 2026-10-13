@@ -1,16 +1,10 @@
-StudyFlow 2.4 - projeto completo
+StudyFlow 2.5 - substitua na raiz do GitHub: app.js e style.css (o resto não mudou).
 
-1) No GitHub, substitua TODOS os arquivos da raiz por estes (ou, no mínimo: app.js, style.css, sw.js e os 9 .m4a de natureza).
-2) Abra o app e atualize. Se aparecer o visual antigo, feche e abra de novo.
-   Se ainda aparecer o aviso de som, feche todas as abas do app uma vez para o sistema novo assumir.
-
-Novidades
-- Volta na mesma página em que você estava (Início, Matérias, Mais...) ao recarregar ou reabrir.
-- Aviso "Não consegui carregar esse som" corrigido (o sistema de cache dos áudios foi refeito e o app tenta de novo antes de avisar).
-- Sons de natureza refeitos (3 min cada): chuva, tempestade, vento, riacho, lareira, ondas, floresta, cachoeira e caverna.
-- Mais leve no Android e no PC; timer e sons mais estáveis com a tela bloqueada.
-
-Onde baixar as notas: Mais > Conta e nuvem > "Notas e backup"
- (Salvar notas de todas as matérias / Planilha de notas / Backup de tudo).
-
-Trocar áudios: jogue o .m4a com o mesmo nome na raiz do GitHub; o app atualiza sozinho.
+1) Fundos: menos elementos (sem estrelas, partículas e silhuetas extras) e cores mais suaves.
+2) Revisões: em Mais > Revisões e dentro da revisão completa há "Tipo de questão": Múltipla escolha (6), Escrever (4) ou As duas (10).
+3) Janela flutuante do timer (Google Chrome 116 ou mais novo, Linux inclusive):
+   - Com um estudo em andamento, na tela do timer toque em "Janela flutuante do timer". Aparece uma janelinha por cima
+     de qualquer outra janela (WhatsApp Web etc.) com a matéria, o tempo que falta e o botão Pausar/Continuar.
+   - "Abrir sozinho ao sair da aba": tenta abrir a janelinha quando você troca de aba/janela. Isso depende do Chrome
+     liberar (precisa de Chrome recente e som tocando, o app já toca um áudio mudo no foco). Se não abrir sozinho,
+     use o botão. Não funciona em Firefox.

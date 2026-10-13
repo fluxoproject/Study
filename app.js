@@ -16,8 +16,11 @@ let icPick=0,streaming=0,popId=null,busy=0,tErr=null,tmsg='Pensando…',ab=0,lp=
 
 // ---------- dados ----------
 // ---------- versão, novidades e base da sincronização ----------
-const APP_VER='2.4',DEV=(()=>{try{return localStorage['sf.dev']||(localStorage['sf.dev']=Math.random().toString(36).slice(2,10))}catch(e){return'x'}})();
-const CHANGELOG=[{v:'2.4',d:'2026-10-12',t:'Sons de natureza novos e app mais leve',it:[
+const APP_VER='2.5',DEV=(()=>{try{return localStorage['sf.dev']||(localStorage['sf.dev']=Math.random().toString(36).slice(2,10))}catch(e){return'x'}})();
+const CHANGELOG=[{v:'2.5',d:'2026-10-12',t:'Timer flutuante e fundos mais leves',it:[
+'Janela flutuante do timer: fica por cima das outras janelas (Chrome) com tempo, matéria e botão de pausar',
+'Revisões: escolha entre múltipla escolha, escrever ou as duas',
+'Fundos com menos elementos e cores mais suaves']},{v:'2.4',d:'2026-10-12',t:'Sons de natureza novos e app mais leve',it:[
 'Sons de natureza refeitos: chuva, tempestade, vento, riacho, lareira, ondas, floresta, cachoeira e caverna, com 3 minutos sem repetir e sem corte na volta',
 'App mais rápido no Android e no PC: menos desfoque pesado e menos animações em segundo plano',
 'O app volta na mesma página em que você estava ao recarregar ou reabrir',
@@ -102,6 +105,28 @@ if(cancel||elapsed(a)<5){save();return go('study')}
 const r={id:a.id||uid(),subject:a.subject,topic:a.topic,startedAt:a.startedAt,endedAt:a.segs.at(-1)[1],duration:Math.round(elapsed(a)),status:'completed'};S.sessions.push(r);done=r;page='timer';save();render()}
 function rate(n){const d=[1,2,4,7,14][n-1];S.reviews.push({id:'rv_'+done.id,topic:done.topic,subject:done.subject,due:add(0,d),done:false});done=null;save();go('study')}
 const focusTick=()=>{const a=S.active;if(!a)return;if(running(a)){a.seen=Date.now();if(((window.__pt=(window.__pt||0)+1)%5)===0)persist();if(elapsed(a)>=a.planned){buzz([250,120,250]);sysNotify('Foco concluído','Você completou '+Math.round(a.planned/60)+' min de '+sj(a.subject).name+'.');return finish()}}msSync();const mt=$('#mt');if(mt)mt.textContent=fmt(a.planned-elapsed(a));const t=$('#tm');if(t){t.textContent=fmt(a.planned-elapsed(a));const g=$('#rg'),C=2*Math.PI*78;if(g)g.setAttribute('stroke-dashoffset',C*Math.min(1,elapsed(a)/a.planned))}};setInterval(focusTick,1000);document.addEventListener('visibilitychange',()=>{if(document.hidden)persist();else focusTick()});addEventListener('pagehide',persist);
+
+// ---------- janela flutuante do timer (Chrome: fica por cima das outras janelas) ----------
+const Pip={w:null,ok:()=>'documentPictureInPicture' in window,
+async open(quiet){if(!Pip.ok())return quiet?0:toast('Esse navegador não abre janela flutuante. Use o Google Chrome atualizado.','','Aviso');
+if(!S.active)return quiet?0:toast('Comece um estudo para abrir o timer flutuante.','','Aviso');if(Pip.w)return;
+try{const w=await documentPictureInPicture.requestWindow({width:270,height:210});Pip.w=w;
+const cs=getComputedStyle(document.documentElement),v=k=>cs.getPropertyValue(k).trim()||'';
+const st=w.document.createElement('style');st.textContent=`*{box-sizing:border-box;margin:0}body{background:${v('--bg')||'#0A1220'};color:${v('--tx')||'#fff'};font-family:system-ui,sans-serif;display:flex;align-items:center;justify-content:center;height:100vh;padding:12px;overflow:hidden}.pp{width:100%;text-align:center}.sj{font-size:14px;font-weight:600;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;opacity:.9}.tm{font-size:54px;font-weight:700;letter-spacing:1px;line-height:1.15;font-variant-numeric:tabular-nums}.st{font-size:12px;opacity:.65;margin-bottom:8px}.bar{height:6px;border-radius:6px;background:${v('--soft')||'rgba(255,255,255,.15)'};overflow:hidden;margin-bottom:12px}.bar i{display:block;height:100%;width:0;background:${v('--acc')||'#3d8bff'};border-radius:6px;transition:width .9s linear}button{width:100%;padding:10px;border:0;border-radius:14px;font-size:15px;font-weight:600;cursor:pointer;background:${v('--acc')||'#3d8bff'};color:${v('--onacc')||'#fff'}}`;
+w.document.head.appendChild(st);w.document.title='Timer de foco';
+w.document.body.innerHTML='<div class="pp"><div class="sj" id="ps"></div><div class="tm" id="pt">--:--</div><div class="st" id="pst"></div><div class="bar"><i id="pb"></i></div><button id="pbtn"></button></div>';
+w.document.getElementById('pbtn').onclick=()=>{if(S.active){pause();Pip.upd()}};
+w.addEventListener('pagehide',()=>{clearInterval(Pip.iv);Pip.w=null});
+Pip.iv=w.setInterval(()=>{try{focusTick();Pip.upd()}catch(e){}},1000);Pip.upd()}catch(e){Pip.w=null;if(!quiet)toast('Não consegui abrir a janela flutuante. Clique em "Janela flutuante do timer" de novo.','','Aviso')}},
+upd(){const w=Pip.w,a=S.active;if(!w)return;if(!a){return Pip.close()}
+const d=w.document,run=running(a),left=a.planned-elapsed(a),g=id=>d.getElementById(id);if(!g('pt'))return;
+g('ps').textContent=sj(a.subject).name+(a.topic?' · '+a.topic:'');g('pt').textContent=fmt(left);g('pst').textContent=run?'Tempo restante':'Pausado';
+g('pb').style.width=Math.min(100,Math.max(0,elapsed(a)/a.planned*100))+'%';g('pbtn').textContent=run?'Pausar':'Continuar'},
+close(){try{clearInterval(Pip.iv);Pip.w&&Pip.w.close()}catch(e){}Pip.w=null},
+toggle(){if(Pip.w)Pip.close();else Pip.open()}};
+try{navigator.mediaSession.setActionHandler('enterpictureinpicture',()=>{if(S.active&&SET().pip!==0)Pip.open(1)})}catch(e){}
+document.addEventListener('visibilitychange',()=>{if(document.hidden&&S&&S.active&&running(S.active)&&SET().pip!==0&&Pip.ok()&&!Pip.w)Pip.open(1)});
+
 
 // ---------- métricas ----------
 const dur=f=>S.sessions.filter(f).reduce((t,s)=>t+s.duration,0);
@@ -431,7 +456,7 @@ if(done)return`${topbar('Estudo concluído',"go('study')")}<div class="card c">$
 const run=a&&running(a),pl=a?a.planned:(+dsel||25)*60,left=a?pl-elapsed(a):pl,C=2*Math.PI*78,pr=a?Math.min(1,elapsed(a)/pl):0;
 const ring=`<svg class="ring" width="220" height="220" viewBox="0 0 200 200"><circle cx="100" cy="100" r="78" fill="none" stroke="var(--soft)" stroke-width="12"/><circle id="rg" cx="100" cy="100" r="78" fill="none" stroke="var(--hl)" stroke-width="12" stroke-linecap="round" stroke-dasharray="${C}" stroke-dashoffset="${C*pr}" transform="rotate(-90 100 100)"/><text x="100" y="108" text-anchor="middle" class="tm" id="tm">${fmt(left)}</text><text x="100" y="132" text-anchor="middle" class="sb">${a?(run?'Tempo restante':'Pausado'):'Duração do foco'}</text></svg>`;
 if(a)return`${topbar('Modo foco',"go('study')")}${a.recover?`<div class="card c">Sessão interrompida (aba fechada). Contamos apenas até ${new Date(a.seen).toLocaleTimeString('pt-BR')}.<button class="p" style="margin-top:12px" onclick="S.active.recover=0;pause()">Recuperar e continuar</button><button class="g" onclick="finish()">Encerrar e salvar</button></div>`:''}
-<div class="row" style="justify-content:center">${sq(ic(sj(a.subject).name,22),sj(a.subject).color)}<div><b>${esc(sj(a.subject).name)}</b><br><small>${esc(a.topic)}</small></div></div>${ring}<p class="hint c">Meta de ${Math.round(pl/60)} min</p>${sndRow()}
+<div class="row" style="justify-content:center">${sq(ic(sj(a.subject).name,22),sj(a.subject).color)}<div><b>${esc(sj(a.subject).name)}</b><br><small>${esc(a.topic)}</small></div></div>${ring}<p class="hint c">Meta de ${Math.round(pl/60)} min</p>${sndRow()}${Pip.ok()?`<button class="g" onclick="Pip.toggle()">${I('monitor',18)} Janela flutuante do timer</button>${tgRow('monitor','Abrir sozinho ao sair da aba','Mostra o timer por cima das outras janelas',SET().pip!==0,"setSet({pip:SET().pip===0?1:0});render(1)")}`:''}
 ${a.recover?'':`<button class="p" onclick="pause()">${run?I('pause',18)+' Pausar':I('play',18)+' Continuar'}</button><button class="g" onclick="finish()">Finalizar e salvar</button><button class="g danger" style="border-color:transparent" onclick="finish(1)">Cancelar sessão</button>`}`;
 return`${topbar('Iniciar estudo',"go('home')")}<div class="card f"><label for="ss">Matéria</label><select id="ss">${opts(fm.s)}</select><label for="st">Conteúdo</label><input id="st" placeholder="Ex: Equações do 2º grau" value="${esc(fm.t)}"><label>Duração em minutos</label><div class="chips">${[15,25,45,60].map(m=>`<button class="${dsel==m?'on':''}" onclick="setD(${m})">${m}</button>`).join('')}<button class="${[15,25,45,60].includes(+dsel)?'':'on'}" onclick="askMin()">${[15,25,45,60].includes(+dsel)?'Outro':dsel}</button></div></div>${ring}${sndRow()}<button class="p" onclick="startS()">${I('play',18)} Começar estudo</button>`},
 rev(){const t=today(),all=S.reviews,pend=all.filter(r=>!r.done).sort((x,y)=>x.due>y.due?1:x.due<y.due?-1:0),late=pend.filter(r=>r.due<t),hoje=pend.filter(r=>r.due==t),prox=pend.filter(r=>r.due>t),nd=late.length+hoje.length,dn=all.filter(r=>r.done).sort((x,y)=>x.due<y.due?1:-1),
@@ -440,7 +465,7 @@ blk=(h,a)=>a.length?`<div class="ndh">${h} <small>(${a.length})</small></div><di
 return`${topbar('Revisões',"go('"+rvf+"')")}<div class="card rvh"><div class="row">${sq(I('repeat',22))}<div class="grow"><div class="big">${nd?nd+(nd==1?' revisão para hoje':' revisões para hoje'):'Nada para revisar hoje'}</div><small>${late.length?late.length+(late.length==1?' atrasada · ':' atrasadas · '):''}${prox.length} agendada${prox.length==1?'':'s'} · ${dn.length} feita${dn.length==1?'':'s'}</small></div></div>${nd?`<button class="p" style="margin-top:12px" onclick="Rv.now()">${I('play',18)} Revisar agora</button>`:`<p class="hint" style="margin:10px 0 0">Depois de cada foco, o app agenda a revisão sozinho.</p>`}</div>
 <button class="g" style="margin-bottom:14px" onclick="showRF=!showRF;rvD=0;render(1)">${I(showRF?'x':'plus',18)} ${showRF?'Fechar':'Nova revisão'}</button>
 ${showRF?`<form class="card f" onsubmit="event.preventDefault();Rv.add()"><label for="rt">O que revisar</label><input id="rt" placeholder="Ex: Revolução Industrial" required><label for="rs">Matéria</label><select id="rs">${opts()}</select><label>Quando</label><div class="chips">${[[0,'Hoje'],[1,'Amanhã'],[3,'Em 3 dias'],[7,'Em 1 semana'],[14,'Em 2 semanas']].map(([d,l])=>`<button type="button" class="${rvD==d?'on':''}" onclick="rvSet(${d},this)">${l}</button>`).join('')}</div><button class="p">Salvar revisão</button></form>`:''}
-${packList()}<div class="tabs">${[['pend','Pendentes',pend.length],['conc','Concluídas',dn.length]].map(([k,l,c])=>`<button class="${rtab==k?'on':''}" onclick="rtab='${k}';render(1)">${l} (${c})</button>`).join('')}</div>
+${qmRow()}${packList()}<div class="tabs">${[['pend','Pendentes',pend.length],['conc','Concluídas',dn.length]].map(([k,l,c])=>`<button class="${rtab==k?'on':''}" onclick="rtab='${k}';render(1)">${l} (${c})</button>`).join('')}</div>
 ${rtab=='pend'?(blk('Atrasadas',late)+blk('Hoje',hoje)+blk('Próximas',prox)||'<div class="card empty">Nenhuma revisão pendente.</div>'):(dn.length?`<div class="card list">${dn.map(row).join('')}</div>`:'<div class="card empty">Nenhuma revisão concluída ainda.</div>')}
 <p class="hint c">Você já revisou ${rdone()} ${rdone()==1?'assunto':'assuntos'}.</p>`},
 more(){if(sub=='nset')return ntSettings();if(sub=='snd')return sndView();if(sub=='rev')return P.rev();if(sub=='pers')return P.pers();if(sub=='acct')return acctView();if(sub=='tutor')return tutorView();if(sub=='prog')return progView();return moreMenu()},
@@ -616,6 +641,9 @@ packList=()=>{const L=(S.packs||[]).slice().sort((a,b)=>b.created-a.created).sli
 return `<h2 style="margin:4px 0 8px">Revisões completas</h2><div class="card list">${L.map(p=>`<div class="t" onclick="Pk.open('${p.id}')" style="cursor:pointer"><span class="sq" style="background:var(--acc);color:var(--onacc)">${I('bulb',20)}</span><div class="grow"><div class="tt">${esc(p.topic)}</div><div class="meta"><span><i class="dot" style="background:${sj(p.subject).color}"></i>${esc(sj(p.subject).name)}</span><span>${p.result?'Feita: '+Math.round(p.result.pct)+'%':'Pronta para fazer'}</span></div></div>${I('chev',18)}</div>`).join('')}</div>`},
 homePack=()=>{const p=(S.packs||[]).filter(x=>!x.result&&dd(x.due)<=1&&dd(x.due)>=-3).sort((a,b)=>a.due>b.due?1:-1)[0];if(!p)return'';
 return `<div class="card row pkhome" onclick="Pk.open('${p.id}')">${sq(I('bulb',22))}<div class="grow"><b>Revisão completa pronta</b><br><small>${esc(p.topic)} · ${dl(p.due).toLowerCase()}</small></div><span class="xpb got" style="margin:0">Fazer</span></div>`};
+const pqs=p=>{const m=SET().qmode,a=p.qs.filter(q=>m=='mc'?q.type=='mc':m=='open'?q.type!='mc':true);return a.length?a:p.qs},
+qmRow=()=>{const m=SET().qmode||'both';return `<div class="card f"><label>Tipo de questão nas revisões</label><div class="chips">${[['mc','Múltipla escolha'],['open','Escrever'],['both','As duas']].map(([k,l])=>`<button class="${m==k?'on':''}" onclick="setQm('${k}')">${l}</button>`).join('')}</div></div>`},
+setQm=k=>{setSet({qmode:k});if(pkS&&pkS.id)pkS={...pkS,i:0,ans:{},sel:{},fb:{},draft:'',busy:0,last:null};render(1)};
 const Pk={
 open(id){const p=S.packs.find(x=>x.id==id);if(!p)return toast('Essa revisão não está mais aqui.','','Aviso');pkS={...pkS,id,i:0,tab:'res',ans:{},sel:{},fb:{},draft:'',busy:0,last:null};go('pack')},
 async forReview(rid){const r=S.reviews.find(x=>x.id==rid);if(!r)return;const p=pkFor(rid,r.due);if(p)return Pk.open(p.id);await Pk.make({rid,kind:'review',topic:r.topic,subject:r.subject,due:r.due},true)},
@@ -626,12 +654,12 @@ try{const r=await api('POST','/pack',{rid:x.rid,due:x.due,kind:x.kind,topic:x.to
 add(d){const id='pk_'+d.key;let p=S.packs.find(x=>x.id==id);if(p)return p;
 p={id,rid:d.rid,due:d.due,kind:d.kind,topic:d.topic,subject:d.sid,summary:d.summary,points:d.points||[],qs:d.qs,created:d.created||Date.now(),result:null};S.packs.push(p);
 notify('pack','Sua revisão completa está pronta',d.topic,{p:'pack',s:id},'pk_'+d.key);if(S.packs.length>40)S.packs=S.packs.slice().sort((a,b)=>b.created-a.created).slice(0,40);save();toast(d.topic,'','Revisão completa pronta');return p},
-pick(k){const p=S.packs.find(x=>x.id==pkS.id),q=p.qs[pkS.i];if(pkS.sel[pkS.i]!=null)return;pkS.sel[pkS.i]=k;buzz(k==q.answer?[15,30,15]:30);Snd.ui(k==q.answer?'ok':'bad');render(1)},
-async grade(){const p=S.packs.find(x=>x.id==pkS.id),q=p.qs[pkS.i],a=(pkS.draft||'').trim();if(a.length<3)return toast('Escreva sua resposta primeiro.','','Aviso');pkS.busy=1;render(1);
+pick(k){const p=S.packs.find(x=>x.id==pkS.id),q=pqs(p)[pkS.i];if(pkS.sel[pkS.i]!=null)return;pkS.sel[pkS.i]=k;buzz(k==q.answer?[15,30,15]:30);Snd.ui(k==q.answer?'ok':'bad');render(1)},
+async grade(){const p=S.packs.find(x=>x.id==pkS.id),q=pqs(p)[pkS.i],a=(pkS.draft||'').trim();if(a.length<3)return toast('Escreva sua resposta primeiro.','','Aviso');pkS.busy=1;render(1);
 try{const r=await api('POST','/pack/grade',{q:q.q,model:q.model,answer:a,topic:p.topic});pkS.ans[pkS.i]=a;pkS.fb[pkS.i]={score:cl(+r.score||0,0,10),feedback:r.feedback||''}}catch(e){toast(e.message,'','Não consegui corrigir')}pkS.busy=0;render(1)},
 skip(){pkS.fb[pkS.i]={score:0,feedback:'Você pulou esta questão.',skip:1};pkS.ans[pkS.i]='';Pk.next()},
-next(){const p=S.packs.find(x=>x.id==pkS.id);pkS.i++;pkS.draft='';if(pkS.i>=p.qs.length)Pk.finish(p);render(1);scrollTo(0,0)},
-finish(p){const mc=p.qs.map((q,i)=>[q,i]).filter(x=>x[0].type=='mc'),ok=mc.filter(([q,i])=>pkS.sel[i]==q.answer).length,op=p.qs.map((q,i)=>[q,i]).filter(x=>x[0].type!='mc'),os=op.reduce((t,[q,i])=>t+((pkS.fb[i]&&pkS.fb[i].score)||0)/10,0),pct=(ok+os)/p.qs.length*100,xpg=30+Math.round(pct/5);
+next(){const p=S.packs.find(x=>x.id==pkS.id);pkS.i++;pkS.draft='';if(pkS.i>=pqs(p).length)Pk.finish(p);render(1);scrollTo(0,0)},
+finish(p){const mc=pqs(p).map((q,i)=>[q,i]).filter(x=>x[0].type=='mc'),ok=mc.filter(([q,i])=>pkS.sel[i]==q.answer).length,op=pqs(p).map((q,i)=>[q,i]).filter(x=>x[0].type!='mc'),os=op.reduce((t,[q,i])=>t+((pkS.fb[i]&&pkS.fb[i].score)||0)/10,0),pct=(ok+os)/pqs(p).length*100,xpg=30+Math.round(pct/5);
 pkS.last={pct,ok,mc:mc.length,open:op.length,os,xp:xpg};if(!p.result||pct>p.result.pct){const gain=xpg-((p.result&&p.result.xp)||0);p.result={pct,ok,mc:mc.length,open:op.length,at:Date.now(),xp:xpg};save();toast('Revisão concluída: '+Math.round(pct)+'%',gain,'Boa!')}},
 again(){pkS={...pkS,i:0,tab:'q',ans:{},sel:{},fb:{},draft:'',busy:0,last:null};render(1);scrollTo(0,0)},
 schedule(d){const p=S.packs.find(x=>x.id==pkS.id);S.reviews.push({id:uid(),topic:p.topic,subject:p.subject,due:add(0,d),done:false});save();toast('Nova revisão marcada para '+dm(add(0,d)),'','Agendado')},
@@ -639,7 +667,7 @@ doneRv(){const p=S.packs.find(x=>x.id==pkS.id),r=S.reviews.find(x=>x.id==p.rid);
 async function prepPacks(){if(!TK()||pkS.gen||gate())return;
 const need=[...S.reviews.filter(r=>!r.done&&dd(r.due)<=1&&dd(r.due)>=-2).map(r=>({rid:r.id,kind:'review',topic:r.topic,subject:r.subject,due:r.due})),...S.exams.filter(e=>dd(e.date)<=1&&dd(e.date)>=0).map(e=>({rid:e.id,kind:'exam',topic:e.topics||'Conteúdo geral da prova',subject:e.subject,due:e.date}))].filter(x=>!pkFor(x.rid,x.due)&&!(pkS.fail[x.rid+x.due]>Date.now()-18e5));
 for(const x of need.slice(0,2)){pkS.gen=1;try{const r=await api('POST','/pack',{rid:x.rid,due:x.due,kind:x.kind,topic:x.topic,subject:sj(x.subject).name,sid:x.subject});Pk.add(r.pack)}catch(e){pkS.fail[x.rid+x.due]=Date.now()}pkS.gen=0}}
-const pkQ=p=>{const n=p.qs.length,i=pkS.i;if(i>=n)return pkEnd(p);const q=p.qs[i],nx=i+1<n?'Próxima':'Ver resultado',
+const pkQ=p=>{const n=pqs(p).length,i=pkS.i;if(i>=n)return pkEnd(p);const q=pqs(p)[i],nx=i+1<n?'Próxima':'Ver resultado',
 bar=`<div class="bar" style="margin:4px 0 8px"><i style="width:${i/n*100}%"></i></div><small class="mu" style="display:block;margin-bottom:8px">Questão ${i+1} de ${n} · ${q.type=='mc'?'múltipla escolha':'pergunta aberta'}</small>`;
 if(q.type=='mc'){const s=pkS.sel[i];return bar+`<div class="card"><div class="qt">${md(q.q)}</div>${q.options.map((o,k)=>`<button class="opt ${s==null?'':k==q.answer?'ok':k==s?'bad':'dim'}" ${s==null?'':'disabled'} onclick="Pk.pick(${k})"><b>${'ABCD'[k]}</b><span>${esc(o)}</span></button>`).join('')}${s==null?'':`<div class="note">${I(s==q.answer?'check':'bulb',18)}<span><b>${s==q.answer?'Correto!':'A resposta é '+'ABCD'[q.answer]+'.'}</b><br>${md(q.explain||'')}</span></div><button class="p" style="margin-top:12px" onclick="Pk.next()">${nx}</button>`}</div>`}
 const f=pkS.fb[i];return bar+`<div class="card"><div class="qt">${md(q.q)}</div>${f?`${pkS.ans[i]?`<div class="ans">${esc(pkS.ans[i])}</div>`:''}<div class="note">${I(f.score>=6?'check':'bulb',18)}<span><b>Nota ${vir(f.score)} de 10</b><br>${md(f.feedback)}</span></div><details open><summary>Resposta esperada</summary><div class="pkmd">${md(q.model||'')}</div></details><button class="p" style="margin-top:12px" onclick="Pk.next()">${nx}</button>`:`<textarea id="oa" rows="5" placeholder="Escreva sua resposta…" aria-label="Sua resposta" oninput="pkS.draft=this.value">${esc(pkS.draft)}</textarea><button class="p" style="margin-top:10px" ${pkS.busy?'disabled':''} onclick="Pk.grade()">${pkS.busy?spin(18):I('send',18)} Corrigir com a IA</button><button class="g" onclick="Pk.skip()">Pular esta</button>`}</div>`},
@@ -647,9 +675,9 @@ pkEnd=p=>{const r=pkS.last||p.result||{pct:0,ok:0,mc:0,open:0},rv=S.reviews.find
 return `<div class="card c"><div class="big xl">${Math.round(r.pct)}%</div><p class="hint" style="margin:6px 0 2px">${r.ok} de ${r.mc} na múltipla escolha${r.open?' · abertas: '+vir(r.os||0)+' de '+r.open:''}</p><b>${r.pct>=85?'Mandou muito bem!':r.pct>=60?'Está no caminho.':'Vale revisar de novo.'}</b><br><small>${r.xp?'+'+r.xp+' XP · ':''}Sugestão: revisar de novo em ${d==1?'1 dia':d+' dias'}.</small></div>
 <button class="p" onclick="Pk.schedule(${d})">${I('repeat',18)} Agendar nova revisão</button>${rv&&!rv.done?`<button class="g" onclick="Pk.doneRv()">${I('check',18)} Marcar revisão como feita</button>`:''}<button class="g" onclick="Pk.again()">${I('repeat',18)} Refazer questões</button><button class="g" onclick="go('more','rev')">Voltar às revisões</button>`};
 P.pack=()=>{const p=S.packs.find(x=>x.id==pkS.id);if(!p)return `${topbar('Revisão',"go('more','rev')")}<div class="card empty">Revisão não encontrada.</div>`;
-const n=p.qs.length,done=pkS.i>=n;
+const n=pqs(p).length,done=pkS.i>=n;
 return `${topbar('Revisão completa',"go('more','rev')")}<div class="card row">${sq(ic(sj(p.subject).name,20),sj(p.subject).color)}<div class="grow"><b>${esc(p.topic)}</b><br><small>${esc(sj(p.subject).name)} · ${p.kind=='exam'?'prova':'revisão'} de ${dm(p.due)}</small></div></div>
-<div class="tabs">${[['res','Resumo'],['q','Questões ('+n+')']].map(([k,l])=>`<button class="${pkS.tab==k?'on':''}" onclick="pkS.tab='${k}';render(1)">${l}</button>`).join('')}</div>
+${qmRow()}<div class="tabs">${[['res','Resumo'],['q','Questões ('+n+')']].map(([k,l])=>`<button class="${pkS.tab==k?'on':''}" onclick="pkS.tab='${k}';render(1)">${l}</button>`).join('')}</div>
 ${pkS.tab=='res'?`<div class="card pkmd">${md(p.summary)}</div><div class="card"><h2>Pontos-chave</h2><ul class="pts">${p.points.map(x=>`<li>${esc(x)}</li>`).join('')}</ul></div><button class="p" onclick="pkS.tab='q';render(1)">${I('play',18)} ${p.result?'Fazer de novo':'Começar as questões'}</button>`:pkQ(p)}`};
 
 // ---------- tutor ----------
