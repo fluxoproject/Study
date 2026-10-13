@@ -16,8 +16,13 @@ let icPick=0,streaming=0,popId=null,busy=0,tErr=null,tmsg='Pensando…',ab=0,lp=
 
 // ---------- dados ----------
 // ---------- versão, novidades e base da sincronização ----------
-const APP_VER='2.5',DEV=(()=>{try{return localStorage['sf.dev']||(localStorage['sf.dev']=Math.random().toString(36).slice(2,10))}catch(e){return'x'}})();
-const CHANGELOG=[{v:'2.5',d:'2026-10-12',t:'Timer flutuante e fundos mais leves',it:[
+const APP_VER='2.7',DEV=(()=>{try{return localStorage['sf.dev']||(localStorage['sf.dev']=Math.random().toString(36).slice(2,10))}catch(e){return'x'}})();
+const CHANGELOG=[{v:'2.7',d:'2026-10-13',t:'Popup em vidro e correções',it:[
+'Popup do timer em vidro com gradiente nas cores do seu tema, anel brilhante, atalho Espaço para pausar e fechamento automático ao voltar para o app',
+'Ícones coloridos do app (nível 50) que estavam faltando',
+'Correções de layout no celular: janelas altas com rolagem, seletores sem corte e textos longos quebrando direito']},{v:'2.6',d:'2026-10-13',t:'Popup do timer novo e níveis mais difíceis',it:[
+'Popup do timer redesenhado: anel de progresso, matéria, Pausar/Continuar e Encerrar (volta ao app para você dizer o quanto entendeu)',
+'Subir de nível exige o dobro de XP por nível']},{v:'2.5',d:'2026-10-12',t:'Timer flutuante e fundos mais leves',it:[
 'Janela flutuante do timer: fica por cima das outras janelas (Chrome) com tempo, matéria e botão de pausar',
 'Revisões: escolha entre múltipla escolha, escrever ou as duas',
 'Fundos com menos elementos e cores mais suaves']},{v:'2.4',d:'2026-10-12',t:'Sons de natureza novos e app mais leve',it:[
@@ -100,32 +105,50 @@ const elapsed=a=>a.segs.reduce((t,[s,e])=>t+((e??Date.now())-s),0)/1e3,running=a
 function startS(){const subject=$('#ss').value,topic=$('#st').value.trim()||'Estudo livre',min=+dsel||25;if(!subject)return alert('Crie uma matéria primeiro.');
 S.active={id:uid(),dev:DEV,subject,topic,planned:min*60,startedAt:Date.now(),segs:[[Date.now(),null]],seen:Date.now()};buzz(25);Snd.ui('start');sndAuto(1);Snd.keep(1);page='timer';save();render()}
 function pause(){const a=S.active;Snd.ui(running(a)?'pause':'start');if(running(a)){a.segs.at(-1)[1]=Date.now();buzz(18)}else{a.segs.push([Date.now(),null]);buzz(18)}save();msSync();render(1)}
-function finish(cancel){const a=S.active;if(!a)return;Snd.ui(cancel?'del':'finish');sndAuto(0);Snd.keep(0);if(running(a))a.segs.at(-1)[1]=Date.now();S.active=null;
+function finish(cancel){const a=S.active;if(!a)return;Snd.ui(cancel?'del':'finish');sndAuto(0);Snd.keep(0);if(running(a))a.segs.at(-1)[1]=Date.now();S.active=null;try{Pip.close()}catch(e){}
 if(cancel||elapsed(a)<5){save();return go('study')}
 const r={id:a.id||uid(),subject:a.subject,topic:a.topic,startedAt:a.startedAt,endedAt:a.segs.at(-1)[1],duration:Math.round(elapsed(a)),status:'completed'};S.sessions.push(r);done=r;page='timer';save();render()}
 function rate(n){const d=[1,2,4,7,14][n-1];S.reviews.push({id:'rv_'+done.id,topic:done.topic,subject:done.subject,due:add(0,d),done:false});done=null;save();go('study')}
 const focusTick=()=>{const a=S.active;if(!a)return;if(running(a)){a.seen=Date.now();if(((window.__pt=(window.__pt||0)+1)%5)===0)persist();if(elapsed(a)>=a.planned){buzz([250,120,250]);sysNotify('Foco concluído','Você completou '+Math.round(a.planned/60)+' min de '+sj(a.subject).name+'.');return finish()}}msSync();const mt=$('#mt');if(mt)mt.textContent=fmt(a.planned-elapsed(a));const t=$('#tm');if(t){t.textContent=fmt(a.planned-elapsed(a));const g=$('#rg'),C=2*Math.PI*78;if(g)g.setAttribute('stroke-dashoffset',C*Math.min(1,elapsed(a)/a.planned))}};setInterval(focusTick,1000);document.addEventListener('visibilitychange',()=>{if(document.hidden)persist();else focusTick()});addEventListener('pagehide',persist);
 
 // ---------- janela flutuante do timer (Chrome: fica por cima das outras janelas) ----------
-const Pip={w:null,ok:()=>'documentPictureInPicture' in window,
+const Pip={w:null,auto:0,ok:()=>'documentPictureInPicture' in window,
 async open(quiet){if(!Pip.ok())return quiet?0:toast('Esse navegador não abre janela flutuante. Use o Google Chrome atualizado.','','Aviso');
 if(!S.active)return quiet?0:toast('Comece um estudo para abrir o timer flutuante.','','Aviso');if(Pip.w)return;
-try{const w=await documentPictureInPicture.requestWindow({width:270,height:210});Pip.w=w;
-const cs=getComputedStyle(document.documentElement),v=k=>cs.getPropertyValue(k).trim()||'';
-const st=w.document.createElement('style');st.textContent=`*{box-sizing:border-box;margin:0}body{background:${v('--bg')||'#0A1220'};color:${v('--tx')||'#fff'};font-family:system-ui,sans-serif;display:flex;align-items:center;justify-content:center;height:100vh;padding:12px;overflow:hidden}.pp{width:100%;text-align:center}.sj{font-size:14px;font-weight:600;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;opacity:.9}.tm{font-size:54px;font-weight:700;letter-spacing:1px;line-height:1.15;font-variant-numeric:tabular-nums}.st{font-size:12px;opacity:.65;margin-bottom:8px}.bar{height:6px;border-radius:6px;background:${v('--soft')||'rgba(255,255,255,.15)'};overflow:hidden;margin-bottom:12px}.bar i{display:block;height:100%;width:0;background:${v('--acc')||'#3d8bff'};border-radius:6px;transition:width .9s linear}button{width:100%;padding:10px;border:0;border-radius:14px;font-size:15px;font-weight:600;cursor:pointer;background:${v('--acc')||'#3d8bff'};color:${v('--onacc')||'#fff'}}`;
+try{const w=await documentPictureInPicture.requestWindow({width:300,height:350});Pip.w=w;Pip.auto=quiet?1:0;
+const cs=getComputedStyle(document.documentElement),v=(k,d)=>cs.getPropertyValue(k).trim()||d,acc=v('--acc','#3d8bff'),tx=v('--tx','#fff'),bg=v('--bg','#0A1220'),h1=+v('--h1',220)||220,h2=+v('--h2',280)||280,onacc=v('--onacc','#fff'),
+c2=`hsl(${h2} 80% 62%)`,glow=`color-mix(in srgb,${acc} 55%,transparent)`;
+const st=w.document.createElement('style');st.textContent=`*{box-sizing:border-box;margin:0;-webkit-tap-highlight-color:transparent}html,body{height:100%}
+body{background:radial-gradient(120% 75% at 12% -8%,hsl(${h1} 80% 52%/.55),transparent 62%),radial-gradient(100% 70% at 100% 108%,hsl(${h2} 75% 55%/.45),transparent 64%),${bg};color:${tx};font-family:system-ui,-apple-system,"Segoe UI",Roboto,sans-serif;display:flex;align-items:center;justify-content:center;padding:12px;overflow:hidden;user-select:none}
+.pp{width:100%;height:100%;display:flex;flex-direction:column;align-items:center;justify-content:space-between;gap:10px;padding:14px 14px 12px;border-radius:24px;background:color-mix(in srgb,${tx} 7%,transparent);border:1px solid color-mix(in srgb,${tx} 18%,transparent);box-shadow:inset 0 1px 0 color-mix(in srgb,${tx} 22%,transparent),0 14px 40px rgba(0,0,0,.28);-webkit-backdrop-filter:blur(18px);backdrop-filter:blur(18px)}
+.sj{display:flex;align-items:center;gap:8px;max-width:100%;padding:6px 13px;border-radius:99px;background:color-mix(in srgb,${tx} 10%,transparent);border:1px solid color-mix(in srgb,${tx} 14%,transparent);font-size:13px;font-weight:650}
+.sj i{width:9px;height:9px;border-radius:50%;flex:none;background:${acc};box-shadow:0 0 0 0 ${glow};animation:pl 1.8s ease-out infinite}.paused .sj i{animation:none;opacity:.45}
+.sj span{white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.rg{position:relative;width:176px;height:176px;flex:none}.rg svg{width:100%;height:100%;transform:rotate(-90deg);overflow:visible;filter:drop-shadow(0 0 9px ${glow})}.paused .rg svg{filter:none;opacity:.7}
+.rg circle{fill:none;stroke-width:10;stroke-linecap:round}.rg .t{stroke:color-mix(in srgb,${tx} 14%,transparent)}.rg .p{stroke:url(#gr);transition:stroke-dashoffset .9s linear}
+.in{position:absolute;inset:0;display:flex;flex-direction:column;align-items:center;justify-content:center}
+.tm{font-size:40px;font-weight:800;letter-spacing:.5px;font-variant-numeric:tabular-nums;line-height:1;text-shadow:0 2px 14px ${glow}}.paused .tm{opacity:.6;text-shadow:none}
+.st{font-size:12px;opacity:.75;margin-top:7px;font-weight:600}.pm{font-size:11px;opacity:.55;margin-top:2px}
+.bt{display:flex;gap:8px;width:100%}button{flex:1;padding:12px 8px;border-radius:15px;font-size:14px;font-weight:750;cursor:pointer;font-family:inherit;border:0;transition:transform .12s,filter .15s,background .15s}button:active{transform:scale(.96)}
+#pbtn{flex:1.4;background:linear-gradient(135deg,${acc},${c2});color:${onacc};box-shadow:0 6px 18px ${glow}}#pbtn:hover{filter:brightness(1.1)}
+#pend{background:color-mix(in srgb,${tx} 9%,transparent);color:${tx};border:1px solid color-mix(in srgb,${tx} 18%,transparent)}#pend:hover{background:color-mix(in srgb,#ef4444 28%,transparent)}
+@keyframes pl{0%{box-shadow:0 0 0 0 ${glow}}70%,100%{box-shadow:0 0 0 8px transparent}}`;
 w.document.head.appendChild(st);w.document.title='Timer de foco';
-w.document.body.innerHTML='<div class="pp"><div class="sj" id="ps"></div><div class="tm" id="pt">--:--</div><div class="st" id="pst"></div><div class="bar"><i id="pb"></i></div><button id="pbtn"></button></div>';
+w.document.body.innerHTML=`<div class="pp" id="pp"><div class="sj"><i></i><span id="ps"></span></div><div class="rg"><svg viewBox="0 0 200 200"><defs><linearGradient id="gr" x1="0" y1="0" x2="1" y2="1"><stop offset="0" stop-color="${acc}"/><stop offset="1" stop-color="${c2}"/></linearGradient></defs><circle class="t" cx="100" cy="100" r="88"/><circle class="p" id="pc" cx="100" cy="100" r="88" stroke-dasharray="553" stroke-dashoffset="553"/></svg><div class="in"><div class="tm" id="pt">--:--</div><div class="st" id="pst"></div><div class="pm" id="pm"></div></div></div><div class="bt"><button id="pbtn"></button><button id="pend">Encerrar</button></div></div>`;
 w.document.getElementById('pbtn').onclick=()=>{if(S.active){pause();Pip.upd()}};
+w.document.getElementById('pend').onclick=()=>{if(!S.active)return Pip.close();finish();Pip.close();try{window.focus()}catch(e){}};
+w.addEventListener('keydown',e=>{if(e.code=='Space'&&S.active){e.preventDefault();pause();Pip.upd()}});
 w.addEventListener('pagehide',()=>{clearInterval(Pip.iv);Pip.w=null});
 Pip.iv=w.setInterval(()=>{try{focusTick();Pip.upd()}catch(e){}},1000);Pip.upd()}catch(e){Pip.w=null;if(!quiet)toast('Não consegui abrir a janela flutuante. Clique em "Janela flutuante do timer" de novo.','','Aviso')}},
 upd(){const w=Pip.w,a=S.active;if(!w)return;if(!a){return Pip.close()}
-const d=w.document,run=running(a),left=a.planned-elapsed(a),g=id=>d.getElementById(id);if(!g('pt'))return;
-g('ps').textContent=sj(a.subject).name+(a.topic?' · '+a.topic:'');g('pt').textContent=fmt(left);g('pst').textContent=run?'Tempo restante':'Pausado';
-g('pb').style.width=Math.min(100,Math.max(0,elapsed(a)/a.planned*100))+'%';g('pbtn').textContent=run?'Pausar':'Continuar'},
+const d=w.document,run=running(a),g=id=>d.getElementById(id);if(!g('pt'))return;const pr=Math.min(1,Math.max(0,elapsed(a)/a.planned));
+g('pp').classList.toggle('paused',!run);g('ps').textContent=sj(a.subject).name+(a.topic?' · '+a.topic:'');g('pt').textContent=fmt(a.planned-elapsed(a));g('pst').textContent=run?'Tempo restante':'Pausado';
+g('pm').textContent=Math.round(pr*100)+'% · meta de '+Math.round(a.planned/60)+' min';
+g('pc').setAttribute('stroke-dashoffset',553*(1-pr));g('pbtn').textContent=run?'Pausar':'Continuar'},
 close(){try{clearInterval(Pip.iv);Pip.w&&Pip.w.close()}catch(e){}Pip.w=null},
 toggle(){if(Pip.w)Pip.close();else Pip.open()}};
 try{navigator.mediaSession.setActionHandler('enterpictureinpicture',()=>{if(S.active&&SET().pip!==0)Pip.open(1)})}catch(e){}
-document.addEventListener('visibilitychange',()=>{if(document.hidden&&S&&S.active&&running(S.active)&&SET().pip!==0&&Pip.ok()&&!Pip.w)Pip.open(1)});
+document.addEventListener('visibilitychange',()=>{if(document.hidden){if(S&&S.active&&running(S.active)&&SET().pip!==0&&Pip.ok()&&!Pip.w)Pip.open(1)}else if(Pip.w&&Pip.auto)Pip.close()});
 
 
 // ---------- métricas ----------
@@ -140,7 +163,7 @@ const achAll=()=>ACH().map(a=>({...a,ok:a.v>=a.t||!!(S.ach||{})[a.id],p:Math.min
 achList=()=>achAll().filter(a=>achF=='all'||(achF=='got'?a.ok:!a.ok)).sort((x,y)=>(x.ok-y.ok)||(y.p-x.p)),
 achHead=()=>{const A=achAll(),g=A.filter(a=>a.ok);return`<h2 style="margin:22px 0 4px">Conquistas <small class="mu">${g.length}/${A.length} · ${g.reduce((t,a)=>t+a.x,0)} XP</small></h2><div class="strip">${[['all','Todas'],['todo','Em andamento'],['got','Conquistadas']].map(([k,l])=>`<button class="${achF==k?'on':''}" onclick="achF='${k}';render(1)">${l}</button>`).join('')}</div>`};
 // Curva de nível: nível 1→2 custa só 60 XP e o custo cresce devagar no começo e rápido no fim, até 900 XP (49→50)
-const LVC=l=>Math.round(60+840*Math.pow((l-1)/48,2.2)),LVT=(()=>{const a=[0];for(let l=1;l<50;l++)a.push(a[l-1]+LVC(l));return a})(),lvOf=x=>{let l=1;while(l<50&&x>=LVT[l])l++;return l};
+const LVC=l=>Math.round(2*(60+840*Math.pow((l-1)/48,2.2))),LVT=(()=>{const a=[0];for(let l=1;l<50;l++)a.push(a[l-1]+LVC(l));return a})(),lvOf=x=>{let l=1;while(l<50&&x>=LVT[l])l++;return l};
 const rdone=()=>S.reviews.filter(r=>r.done).length,xp=()=>Math.round(dur(()=>1)/60)+rdone()*20+S.tasks.filter(t=>t.done).length*5+packXp()+chatXp()+achXp()+(S.dxp||0),lvl=()=>lvOf(xp()),dueRev=()=>S.reviews.filter(r=>!r.done&&r.due<=today()).length;
 const uph=()=>(S.user&&(S.user.photo||S.user.gphoto))||'';
 const ACH=()=>{const m=dur(()=>1)/60,n=S.sessions.length,tp=new Set(S.sessions.map(s=>s.topic)).size,l=Math.max(longest(),streak()),tasks=S.tasks.filter(t=>t.done).length,subs=new Set(S.sessions.map(s=>s.subject)).size,
@@ -456,7 +479,7 @@ if(done)return`${topbar('Estudo concluído',"go('study')")}<div class="card c">$
 const run=a&&running(a),pl=a?a.planned:(+dsel||25)*60,left=a?pl-elapsed(a):pl,C=2*Math.PI*78,pr=a?Math.min(1,elapsed(a)/pl):0;
 const ring=`<svg class="ring" width="220" height="220" viewBox="0 0 200 200"><circle cx="100" cy="100" r="78" fill="none" stroke="var(--soft)" stroke-width="12"/><circle id="rg" cx="100" cy="100" r="78" fill="none" stroke="var(--hl)" stroke-width="12" stroke-linecap="round" stroke-dasharray="${C}" stroke-dashoffset="${C*pr}" transform="rotate(-90 100 100)"/><text x="100" y="108" text-anchor="middle" class="tm" id="tm">${fmt(left)}</text><text x="100" y="132" text-anchor="middle" class="sb">${a?(run?'Tempo restante':'Pausado'):'Duração do foco'}</text></svg>`;
 if(a)return`${topbar('Modo foco',"go('study')")}${a.recover?`<div class="card c">Sessão interrompida (aba fechada). Contamos apenas até ${new Date(a.seen).toLocaleTimeString('pt-BR')}.<button class="p" style="margin-top:12px" onclick="S.active.recover=0;pause()">Recuperar e continuar</button><button class="g" onclick="finish()">Encerrar e salvar</button></div>`:''}
-<div class="row" style="justify-content:center">${sq(ic(sj(a.subject).name,22),sj(a.subject).color)}<div><b>${esc(sj(a.subject).name)}</b><br><small>${esc(a.topic)}</small></div></div>${ring}<p class="hint c">Meta de ${Math.round(pl/60)} min</p>${sndRow()}${Pip.ok()?`<button class="g" onclick="Pip.toggle()">${I('monitor',18)} Janela flutuante do timer</button>${tgRow('monitor','Abrir sozinho ao sair da aba','Mostra o timer por cima das outras janelas',SET().pip!==0,"setSet({pip:SET().pip===0?1:0});render(1)")}`:''}
+<div class="row" style="justify-content:center">${sq(ic(sj(a.subject).name,22),sj(a.subject).color)}<div><b>${esc(sj(a.subject).name)}</b><br><small>${esc(a.topic)}</small></div></div>${ring}<p class="hint c">Meta de ${Math.round(pl/60)} min</p>${sndRow()}${Pip.ok()?`<button class="g" style="margin-bottom:10px" onclick="Pip.toggle()">${I('monitor',18)} Janela flutuante do timer</button>${tgRow('monitor','Abrir sozinho ao sair da aba','Mostra o timer por cima das outras janelas',SET().pip!==0,"setSet({pip:SET().pip===0?1:0});render(1)")}`:''}
 ${a.recover?'':`<button class="p" onclick="pause()">${run?I('pause',18)+' Pausar':I('play',18)+' Continuar'}</button><button class="g" onclick="finish()">Finalizar e salvar</button><button class="g danger" style="border-color:transparent" onclick="finish(1)">Cancelar sessão</button>`}`;
 return`${topbar('Iniciar estudo',"go('home')")}<div class="card f"><label for="ss">Matéria</label><select id="ss">${opts(fm.s)}</select><label for="st">Conteúdo</label><input id="st" placeholder="Ex: Equações do 2º grau" value="${esc(fm.t)}"><label>Duração em minutos</label><div class="chips">${[15,25,45,60].map(m=>`<button class="${dsel==m?'on':''}" onclick="setD(${m})">${m}</button>`).join('')}<button class="${[15,25,45,60].includes(+dsel)?'':'on'}" onclick="askMin()">${[15,25,45,60].includes(+dsel)?'Outro':dsel}</button></div></div>${ring}${sndRow()}<button class="p" onclick="startS()">${I('play',18)} Começar estudo</button>`},
 rev(){const t=today(),all=S.reviews,pend=all.filter(r=>!r.done).sort((x,y)=>x.due>y.due?1:x.due<y.due?-1:0),late=pend.filter(r=>r.due<t),hoje=pend.filter(r=>r.due==t),prox=pend.filter(r=>r.due>t),nd=late.length+hoje.length,dn=all.filter(r=>r.done).sort((x,y)=>x.due<y.due?1:-1),

@@ -604,3 +604,11 @@ html[data-pbg] #scene .d{opacity:.45!important}
 html[data-pbg]:not([data-theme=light]) #scene{opacity:.5}
 html[data-pbg] #scene .a{animation:none!important}
 body::before{opacity:.7}
+
+/* ---- 2.7 ajustes de layout ---- */
+.modal{max-height:calc(100vh - 36px);max-height:calc(100dvh - 36px);overflow-y:auto;overscroll-behavior:contain}
+.t .grow,.row .grow{min-width:0}.tt{overflow-wrap:anywhere}
+.chips{flex-wrap:wrap}
+@media(max-width:400px){.tabs button{padding-left:5px;padding-right:5px;font-size:12.5px;min-width:0}}
+@media(max-width:400px){.tabs button{gap:4px}.tabs button svg{width:15px;height:15px}}
+@media(max-width:400px){.tabs button{flex:1 1 auto}}

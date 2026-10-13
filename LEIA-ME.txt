@@ -1,10 +1,9 @@
-StudyFlow 2.5 - substitua na raiz do GitHub: app.js e style.css (o resto não mudou).
+StudyFlow 2.7 - jogue tudo deste zip na raiz do GitHub (substitui app.js e style.css; os ic-*.png são novos).
 
-1) Fundos: menos elementos (sem estrelas, partículas e silhuetas extras) e cores mais suaves.
-2) Revisões: em Mais > Revisões e dentro da revisão completa há "Tipo de questão": Múltipla escolha (6), Escrever (4) ou As duas (10).
-3) Janela flutuante do timer (Google Chrome 116 ou mais novo, Linux inclusive):
-   - Com um estudo em andamento, na tela do timer toque em "Janela flutuante do timer". Aparece uma janelinha por cima
-     de qualquer outra janela (WhatsApp Web etc.) com a matéria, o tempo que falta e o botão Pausar/Continuar.
-   - "Abrir sozinho ao sair da aba": tenta abrir a janelinha quando você troca de aba/janela. Isso depende do Chrome
-     liberar (precisa de Chrome recente e som tocando, o app já toca um áudio mudo no foco). Se não abrir sozinho,
-     use o botão. Não funciona em Firefox.
+- Popup do timer em vidro com gradiente nas cores do seu tema: anel brilhante, matéria no topo, % e meta,
+  Pausar/Continuar (ou barra de espaço) e Encerrar. Quando você volta para a aba do app, o popup aberto sozinho fecha.
+- Os 7 ícones coloridos do app (nível 50) estavam faltando no projeto e davam erro 404; foram gerados (ic-*-192.png e ic-*-512.png).
+- Layout no celular: janelas (modais) altas agora rolam, seletores como Escuro/Claro/Automático não cortam mais o texto,
+  textos longos quebram direito.
+- Testado em Chromium (celular e PC): sem erros de JavaScript ao abrir todas as telas, popup, pausar, encerrar,
+  voltar na mesma página ao recarregar, tipos de questão e níveis.
