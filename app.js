@@ -16,8 +16,10 @@ let icPick=0,streaming=0,popId=null,busy=0,tErr=null,tmsg='Pensando…',ab=0,lp=
 
 // ---------- dados ----------
 // ---------- versão, novidades e base da sincronização ----------
-const APP_VER='2.7',DEV=(()=>{try{return localStorage['sf.dev']||(localStorage['sf.dev']=Math.random().toString(36).slice(2,10))}catch(e){return'x'}})();
-const CHANGELOG=[{v:'2.7',d:'2026-10-13',t:'Popup em vidro e correções',it:[
+const APP_VER='2.8',DEV=(()=>{try{return localStorage['sf.dev']||(localStorage['sf.dev']=Math.random().toString(36).slice(2,10))}catch(e){return'x'}})();
+const CHANGELOG=[{v:'2.8',d:'2026-10-14',t:'Visual mais bonito e telas à prova de falha',it:[
+'Acabamento novo: títulos com degradê, cartões e botões mais suaves, barras de progresso brilhantes e mais respiro entre as seções',
+'Se alguma tela der erro, ela mostra a mensagem e botões para tentar de novo ou limpar o cache, em vez de ficar em branco']},{v:'2.7',d:'2026-10-13',t:'Popup em vidro e correções',it:[
 'Popup do timer em vidro com gradiente nas cores do seu tema, anel brilhante, atalho Espaço para pausar e fechamento automático ao voltar para o app',
 'Ícones coloridos do app (nível 50) que estavam faltando',
 'Correções de layout no celular: janelas altas com rolagem, seletores sem corte e textos longos quebrando direito']},{v:'2.6',d:'2026-10-13',t:'Popup do timer novo e níveis mais difíceis',it:[
@@ -818,13 +820,17 @@ return `${topbar('Tutor com IA',"go('more')")}<div class="msg ai-welcome">Olá, 
 // ---------- navegação ----------
 const go=(p,sb='')=>{page=p;sub=sb;icPick=0;if(sb=='tutor')wake();showRF=0;ttab='d3';rtab='pend';range='semana';fm={s:'',t:''};if(p!='timer')done=null;scrollTo(0,0);render(0)};
 const mini=()=>{const a=S.active;if(!a||page=='timer'||gate())return'';const run=running(a);return`<div class="mt" role="button" tabindex="0" aria-label="Voltar ao cronômetro" onclick="go('timer')"><span class="sq" style="background:${sj(a.subject).color};color:#fff">${ic(sj(a.subject).name,20)}</span><div class="grow"><b>${esc(sj(a.subject).name)}</b><br><small>${run?'Tempo restante':'Pausado'}</small></div><b class="mtt" id="mt">${fmt(a.planned-elapsed(a))}</b><button class="mb" aria-label="${run?'Pausar':'Continuar'}" onclick="event.stopPropagation();pause()">${I(run?'pause':'play',18)}</button></div>`};
+const errCard=e=>{const m=esc(String((e&&e.message)||e||'erro')).slice(0,240),st=esc(String((e&&e.stack)||'').split('\n').slice(1,3).join(' ').replace(/https?:\/\/[^\s)]*\//g,'')).slice(0,260);
+return `<div class="head"><h1>Ops</h1></div><div class="card c"><b>Esta tela deu um erro.</b><p class="hint" style="margin:8px 0 12px">Seus dados estão salvos. Tente de novo; se continuar, limpe o cache do app.</p><code style="display:block;text-align:left;font-size:12px;opacity:.8;white-space:pre-wrap;word-break:break-word;margin-bottom:12px">${m}${st?'\n'+st:''}</code><button class="p" onclick="render()">Tentar de novo</button><button class="g" onclick="go('home')">Ir para o início</button><button class="g" onclick="resetCache()">Limpar cache do app</button></div>`};
+async function resetCache(){try{const r=await navigator.serviceWorker.getRegistrations();await Promise.all(r.map(x=>x.unregister()))}catch(e){}try{const k=await caches.keys();await Promise.all(k.map(x=>caches.delete(x)))}catch(e){}try{localStorage.removeItem('sf.nav')}catch(e){}location.reload()}
+addEventListener('error',e=>{try{const A=$('#app');if(A&&!A.textContent.trim())A.innerHTML=errCard(e.error||e.message)}catch(x){}});
 function render(keep){const A=$('#app'),nv=$('#nav');try{localStorage['sf.nav']=JSON.stringify({p:page,s:sub})}catch(e){}A.classList.toggle('enter',!keep);
 if(gate()){nv.style.display='none';$('#mini').innerHTML='';document.body.classList.remove('hasmini');A.innerHTML=P.login();return}
 nv.style.display='';const items=[['home','home','Início'],['subjects','book','Matérias'],['tasks','tasks','Tarefas'],['study','chart','Estudos'],['more','more','Mais']],cur=({timer:'study',pack:'more',news:'more'})[page]||page,ix=items.findIndex(x=>x[0]==cur);
 // o menu é montado uma vez só: assim a bolinha azul desliza de um botão para o outro
 if(!nv.querySelector('a'))nv.innerHTML='<i class="pill"></i>'+items.map(([k,i,l])=>`<a role="button" tabindex="0" aria-label="${l}" onclick="go('${k}')" onkeydown="if(event.key=='Enter'||event.key==' '){event.preventDefault();go('${k}')}"><span class="ni">${I(i,21)}</span><span>${l}</span></a>`).join('');
 nv.style.setProperty('--n',Math.max(0,ix));nv.classList.toggle('none',ix<0);nv.querySelectorAll('a').forEach((a,k)=>a.classList.toggle('on',k==ix));
-A.innerHTML=P[page]();const mn=$('#mini'),had=!!mn.innerHTML,m=mini();mn.innerHTML=m;mn.classList.toggle('in',!!m&&!had);document.body.classList.toggle('hasmini',!!m);if(!keep)cu()}
+try{A.innerHTML=P[page]()}catch(e){A.innerHTML=errCard(e);console.error(e)}const mn=$('#mini'),had=!!mn.innerHTML;let m='';try{m=mini()}catch(e){console.error(e)}mn.innerHTML=m;mn.classList.toggle('in',!!m&&!had);document.body.classList.toggle('hasmini',!!m);if(!keep)cu()}
 
 // ---------- nuvem (opcional): conta + sincronização ----------
 const TK=()=>localStorage['studyflow.token'],setTK=(t,e)=>{t?(localStorage['studyflow.token']=t,localStorage['studyflow.email']=e):(localStorage.removeItem('studyflow.token'),localStorage.removeItem('studyflow.email'))};

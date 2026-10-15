@@ -1,9 +1,10 @@
-StudyFlow 2.7 - jogue tudo deste zip na raiz do GitHub (substitui app.js e style.css; os ic-*.png são novos).
+StudyFlow 2.8 - substitua na raiz do GitHub: app.js e style.css
 
-- Popup do timer em vidro com gradiente nas cores do seu tema: anel brilhante, matéria no topo, % e meta,
-  Pausar/Continuar (ou barra de espaço) e Encerrar. Quando você volta para a aba do app, o popup aberto sozinho fecha.
-- Os 7 ícones coloridos do app (nível 50) estavam faltando no projeto e davam erro 404; foram gerados (ic-*-192.png e ic-*-512.png).
-- Layout no celular: janelas (modais) altas agora rolam, seletores como Escuro/Claro/Automático não cortam mais o texto,
-  textos longos quebram direito.
-- Testado em Chromium (celular e PC): sem erros de JavaScript ao abrir todas as telas, popup, pausar, encerrar,
-  voltar na mesma página ao recarregar, tipos de questão e níveis.
+1) Tela em branco em Mais / Conta e nuvem: não consegui reproduzir aqui. Agora, se qualquer tela falhar, em vez de ficar
+   em branco aparece um cartão "Esta tela deu um erro" com a mensagem do erro e 3 botões:
+   Tentar de novo, Ir para o início e Limpar cache do app. Se aparecer, me mande o texto da mensagem.
+   Dica: se a tela em branco acontece logo depois de atualizar os arquivos, tente o botão "Limpar cache do app"
+   (ou Ctrl+Shift+R) para o Chrome largar a versão antiga guardada.
+2) Visual: títulos com degradê, cartões com cantos mais redondos e sombra suave, botões principais com gradiente,
+   barras de progresso com brilho, títulos de seção em caixa alta pequena, menu inferior com bolinha brilhante,
+   foco por teclado destacado e rolagem fina.
