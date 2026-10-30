@@ -1,4 +1,4 @@
-StudyFlow 2.8 - substitua na raiz do GitHub: app.js e style.css
+EstudoLógico 2.8 - substitua na raiz do GitHub: app.js e style.css
 
 1) Tela em branco em Mais / Conta e nuvem: não consegui reproduzir aqui. Agora, se qualquer tela falhar, em vez de ficar
    em branco aparece um cartão "Esta tela deu um erro" com a mensagem do erro e 3 botões:
